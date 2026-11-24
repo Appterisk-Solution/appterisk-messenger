@@ -7,7 +7,7 @@ async function api(path,method='GET',body){const response=await fetch(`https://a
 let release=await api(`releases/tags/${tag}`);
 if(mode==='draft'){
  if(release&&!release.draft)throw new Error('Refusing to replace an already published release');
- release=release??await api('releases','POST',{tag_name:tag,name:`Appterisk Messenger ${manifest.version}${channel==='beta'?' - experimental, Authenticode unsigned unless verified':''}`,draft:true,prerelease:channel==='beta',body:manifest.notes});
+ release=release??await api('releases','POST',{tag_name:tag,name:`Appterisk Messenger ${manifest.version}${channel==='beta'?' - experimental prerelease':''}`,draft:true,prerelease:channel==='beta',body:manifest.notes});
  for(const name of readdirSync(dir).filter(n=>/\.(exe|msi|sig|json|txt|md)$/.test(n))){if(release.assets.some(a=>a.name===name))throw new Error('Refusing to overwrite an existing release asset');const url=new URL(release.upload_url.split('{')[0]);if(url.protocol!=='https:'||url.hostname!=='uploads.github.com')throw new Error('Invalid GitHub upload endpoint');url.searchParams.set('name',name);const uploaded=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/octet-stream'},body:readFileSync(join(dir,name))});if(!uploaded.ok)throw new Error(`Asset upload failed: ${uploaded.status}`);}
  console.log('Signed artifacts uploaded to a draft release; no channel manifest changed');
 }else{
