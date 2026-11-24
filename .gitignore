@@ -32,3 +32,4 @@ dist-ssr
 !*.example
 
 release-out/
+*.recovery.txt

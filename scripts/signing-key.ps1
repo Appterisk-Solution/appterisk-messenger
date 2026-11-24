@@ -1,4 +1,4 @@
-param([ValidateSet('Init','Build')][string]$Action='Build',[string]$ProjectRoot=(Get-Location).Path)
+param([ValidateSet('Init','Build','Backup')][string]$Action='Build',[string]$ProjectRoot=(Get-Location).Path,[string]$BackupDirectory)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath($ProjectRoot)
 $vault=Join-Path $env:USERPROFILE '.tauri\appterisk-messenger'
@@ -23,6 +23,20 @@ if($Action -eq 'Init') {
   [IO.File]::WriteAllText((Join-Path $root 'src-tauri/update-public-key.txt'),$public+"`n")
   $password=$null;$result=$null
   Write-Output 'Encrypted production updater key created outside the repository. Offline recovery backup still requires the owner.'
+} elseif($Action -eq 'Backup') {
+  if(!$BackupDirectory -or ![IO.Path]::IsPathRooted($BackupDirectory)){throw 'Select an independently encrypted external volume.'}
+  $destination=[IO.Path]::GetFullPath($BackupDirectory)
+  $drive=[IO.Path]::GetPathRoot($destination)
+  if($drive -eq [IO.Path]::GetPathRoot($env:USERPROFILE)){throw 'Offline recovery must not be stored on the current system drive.'}
+  $volume=Get-BitLockerVolume -MountPoint $drive -ErrorAction Stop
+  if($volume.ProtectionStatus -ne 'On' -or $volume.VolumeStatus -ne 'FullyEncrypted'){throw 'Backup requires a verified encrypted BitLocker volume; no recovery password was written.'}
+  if(!(Test-Path -LiteralPath $key) -or !(Test-Path -LiteralPath $passwordFile)){throw 'Owner signing key is unavailable.'}
+  New-Item -ItemType Directory -Path $destination -Force | Out-Null
+  $secure=ConvertTo-SecureString ([IO.File]::ReadAllText($passwordFile))
+  $credential=New-Object Management.Automation.PSCredential('updater',$secure)
+  Copy-Item -LiteralPath $key -Destination (Join-Path $destination 'production.key') -ErrorAction Stop
+  [IO.File]::WriteAllText((Join-Path $destination 'password.recovery.txt'),$credential.GetNetworkCredential().Password)
+  Write-Output 'Recovery material copied only to the verified encrypted volume. Disconnect it, store it offline and verify recovery before confirming the backup.'
 } else {
   if(!(Test-Path -LiteralPath $key) -or !(Test-Path -LiteralPath $passwordFile)){throw 'Run signing-key.ps1 Init once as the owner first.'}
   $secure=ConvertTo-SecureString ([IO.File]::ReadAllText($passwordFile))
