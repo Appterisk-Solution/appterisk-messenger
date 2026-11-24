@@ -94,3 +94,9 @@ The upgrade test refuses to downgrade an existing newer install and requires all
 Use **Settings → Diagnostics** or launch with `--diagnostics` after quitting to access the preserved compatibility probe. Independent 0.1.2 native/minimal-Tauri/Edge controls remain available through existing scripts. See [architecture](docs/ARCHITECTURE.md), [release evidence](docs/RELEASE_0.3.0.md), [changelog](CHANGELOG.md) and [build setup](docs/BUILD_SETUP.md).
 
 Independent and unofficial; not affiliated with WhatsApp or Meta.
+
+## License and code signing policy
+
+Project-owned source is available under the [MIT License](LICENSE). Dependencies, Microsoft WebView2 and remote provider websites retain their own terms; MIT does not relicense them.
+
+See the [Code signing policy](CODE_SIGNING.md) and [privacy policy](PRIVACY.md). Free signing application materials are prepared for SignPath Foundation; no approval or Windows publisher signing is claimed. Existing installers remain Authenticode-unsigned.

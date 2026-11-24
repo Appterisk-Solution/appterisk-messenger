@@ -21,3 +21,13 @@ The protected release workflow supports an owner-provided exportable certificate
 Trusted stable publishing fails if certificate configuration or offline backup confirmation is missing. Protect release environments and review workflow changes. An Authenticode-unsigned experimental prerelease must be labeled clearly and must not advance Stable.
 
 From Git Bash or PowerShell, `npm run build:signed` runs the local encrypted-key build without changing shell execution policy. `npm run signing:backup -- X:/AppteriskRecovery` is an owner-run helper: it refuses the current system drive and requires an already fully encrypted, protected BitLocker volume before writing recovery material. It does not encrypt a drive or change Windows security settings. Disconnect/store that volume offline and verify recovery; this helper has not been run because no offline destination was supplied. Other encrypted offline media require equivalent owner-controlled procedures. Never commit the recovery directory.
+
+## Code signing policy
+
+Status: preparing an application to SignPath Foundation; not submitted, accepted or configured. Existing installers remain Authenticode-unsigned. The owner authorized the MIT license for project-owned source on 2026-11-25. Third-party licenses remain unchanged.
+
+Proposed signing roles: James ([GitHub @ipipowng01](https://github.com/ipipowng01)) as committer, reviewer and release approver. Maintainers must verify actual access, enable MFA and approve each release before requesting production signing. No claim is made that provider MFA or account configuration has been completed.
+
+After approval and successful signing, the intended attribution is: ?Free code signing provided by SignPath.io, certificate by SignPath Foundation?. This is conditional attribution, not a claim that the service currently signs Appterisk. Provider approval and a dependency-license/System Library review remain required. See [prepared application](SIGNING_APPLICATION.txt) and [privacy policy](PRIVACY.md).
+
+Only artifacts built from the reviewed public repository may be submitted. Signing must preserve product/version metadata and cover the application executable before bundling, followed by the finished installers. Generate Tauri updater signatures only after Windows signing. Publish newly signed binaries under a new release version; do not replace immutable v0.5.0 assets. Keep release acceptance and cryptographic verification gates in place.

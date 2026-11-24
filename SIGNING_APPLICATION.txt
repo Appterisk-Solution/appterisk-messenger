@@ -1,0 +1,50 @@
+Appterisk Messenger — SignPath Foundation application preparation
+
+Status: prepared, not submitted or approved. Existing installers are unsigned.
+
+Application page: https://signpath.org/apply
+Project: Appterisk Messenger
+Repository: https://github.com/Appterisk-Solution/appterisk-messenger
+Download page: https://github.com/Appterisk-Solution/appterisk-messenger/releases
+License: MIT (project-owned source; third-party licenses remain applicable)
+Maintainer: James, GitHub @ipipowng01, individual developer in Malaysia
+
+Description:
+Appterisk Messenger is a Windows desktop application that displays official
+messaging websites in isolated persistent native WebView2 browser profiles.
+It uses Rust, Tauri 2, Vue 3 and SQLite for account metadata. It does not use
+unofficial messaging APIs or an application backend. The current release
+supports WhatsApp and experimental Telegram/Discord accounts.
+
+Signing need:
+Windows Smart App Control currently blocks the Authenticode-unsigned installer.
+We request evaluation for free open-source signing of the project executable
+and NSIS/MSI installers built from the public repository through GitHub Actions.
+The existing Tauri update signatures are separate from Windows publisher trust.
+
+Policy: https://github.com/Appterisk-Solution/appterisk-messenger/blob/main/CODE_SIGNING.md
+Privacy: https://github.com/Appterisk-Solution/appterisk-messenger/blob/main/PRIVACY.md
+
+Owner steps before submission:
+- Supply your contact email privately in the application, not in this file.
+- Review and accept the provider's current terms yourself.
+- Confirm GitHub MFA and configure SignPath MFA when the account is available.
+- Confirm the named maintainer and signing roles match actual repository access.
+- Complete the dependency-license review; do not claim all components qualify
+  until reviewed. Official provider websites are remote third-party services,
+  not Appterisk-owned MIT code. WebView2 is a Microsoft runtime; disclose its
+  use and let SignPath assess the System Library exception.
+- Request approval; free signing is discretionary and may require project
+  reputation, further review or changes. MIT licensing alone does not ensure it.
+
+After approval:
+- Configure the assigned organization/project/policy and trusted build identity.
+- Sign only Appterisk-owned executable code; preserve third-party signatures.
+- Sign application payload before packaging; sign the finished installers
+  before generating Tauri signatures and manifests. Never replace an existing
+  published release's signed bytes in place.
+- Verify Authenticode chain/timestamp for each executable/installer, then repeat
+  installer/updater preservation tests and publish a new version.
+- Update pending attribution only after provider approval and successful signing.
+
+This document contains no private keys, credentials or application submission.
