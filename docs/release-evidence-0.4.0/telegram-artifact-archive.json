@@ -1,0 +1,20 @@
+[
+  {
+    "path": "src-tauri/target/release/appterisk-messenger.exe",
+    "bytes": 7230464,
+    "sha256": "f91ee73978801886b5a6f17e0bf588f73b5189ec499ced0cbfac454e7f412347",
+    "archived_path": "src-tauri/target/release/staged-telegram-326a956/appterisk-messenger.exe"
+  },
+  {
+    "path": "src-tauri/target/release/bundle/nsis/Appterisk Messenger_0.4.0_x64-setup.exe",
+    "bytes": 2520550,
+    "sha256": "9f6af0f2e2667af947c2263cfa7cf2e071a7b38339b035ec34f0a07500ef9de5",
+    "archived_path": "src-tauri/target/release/staged-telegram-326a956/Appterisk Messenger_0.4.0_x64-setup.exe"
+  },
+  {
+    "path": "src-tauri/target/release/bundle/msi/Appterisk Messenger_0.4.0_x64_en-US.msi",
+    "bytes": 3538944,
+    "sha256": "b03e6377747f1680fb98e65cc4404d3d5da591050b58075783c00d6323868af9",
+    "archived_path": "src-tauri/target/release/staged-telegram-326a956/Appterisk Messenger_0.4.0_x64_en-US.msi"
+  }
+]
