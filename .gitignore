@@ -33,3 +33,4 @@ dist-ssr
 
 release-out/
 *.recovery.txt
+e2e-owner/

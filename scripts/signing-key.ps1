@@ -31,6 +31,7 @@ if($Action -eq 'Init') {
   $volume=Get-BitLockerVolume -MountPoint $drive -ErrorAction Stop
   if($volume.ProtectionStatus -ne 'On' -or $volume.VolumeStatus -ne 'FullyEncrypted'){throw 'Backup requires a verified encrypted BitLocker volume; no recovery password was written.'}
   if(!(Test-Path -LiteralPath $key) -or !(Test-Path -LiteralPath $passwordFile)){throw 'Owner signing key is unavailable.'}
+  foreach($name in @('production.key','password.recovery.txt')){if(Test-Path -LiteralPath (Join-Path $destination $name)){throw 'Recovery destination already contains signing material; refusing to overwrite it.'}}
   New-Item -ItemType Directory -Path $destination -Force | Out-Null
   $secure=ConvertTo-SecureString ([IO.File]::ReadAllText($passwordFile))
   $credential=New-Object Management.Automation.PSCredential('updater',$secure)

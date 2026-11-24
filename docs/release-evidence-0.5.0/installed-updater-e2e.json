@@ -1,0 +1,16 @@
+{
+  "durable_cookie_localstorage_idb_blob_key": true,
+  "metadata_ids_preserved": true,
+  "passed": true,
+  "preferences_preserved": true,
+  "profiles": 3,
+  "real_provider_authentication": false,
+  "version": "0.5.1-e2e.1",
+  "baseline": {
+    "download_cancelled": true,
+    "profiles": 3,
+    "shutdown_failure_aborted": true,
+    "version": "0.5.0-e2e.1"
+  },
+  "isolated_identifier": "com.appterisk.messenger.updater-e2e"
+}
