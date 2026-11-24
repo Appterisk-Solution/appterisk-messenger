@@ -71,3 +71,7 @@ Enable each account's notification preference and explicitly allow notification 
 - Dev-only `@vue/test-utils` transitive packages retain the previously documented moderate npm audit advisories; they are not bundled as runtime application code.
 
 Native API choices were checked against primary sources: [WebView2 notification interface](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2_24), [handled notification lifecycle](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2notificationreceivedeventargs), [WebView2 visibility behavior](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2controller.isvisible), [Tauri tray APIs](https://v2.tauri.app/learn/system-tray/) and [native dialog APIs](https://v2.tauri.app/plugin/dialog/). RustCrypto's installed Argon2 0.6 documentation supplies the salted PHC-hash/verification API. No third-party notification shim or unlicensed reference implementation was copied.
+
+## User acceptance confirmation
+
+The v0.4.0 request reports 18 of 19 manual acceptance tests passed, including notifications, attachments, voice, lock, shortcuts, languages and startup. The subsequent user reply ?test ok? confirms the remaining three-account, three-full-restart authentication test on v0.3.0. These are user-confirmed results, separate from automated evidence.
