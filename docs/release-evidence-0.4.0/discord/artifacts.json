@@ -1,0 +1,17 @@
+[
+  {
+    "path": "src-tauri/target/release/appterisk-messenger.exe",
+    "bytes": 7230976,
+    "sha256": "15f9706de8d865090d19317cc76b0230135599d5235634fee1c7633d2604c8b3"
+  },
+  {
+    "path": "src-tauri/target/release/bundle/nsis/Appterisk Messenger_0.4.0_x64-setup.exe",
+    "bytes": 2521070,
+    "sha256": "970cbd17c69cbfca9a0ff5bb69a3c7e1636617dee909cf897f3d546380e52de0"
+  },
+  {
+    "path": "src-tauri/target/release/bundle/msi/Appterisk Messenger_0.4.0_x64_en-US.msi",
+    "bytes": 3538944,
+    "sha256": "58b84452b9f4beb0348206df6b734ebaba8b456b8567ff21761afd7399571552"
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "schema": 3,
+  "account_count": 4,
+  "accounts_sha256": "e59c73c509bbecc094a285d7154fbc77145209ae5eac5e4c8dcba13996d732eb",
+  "settings_sha256": "f76a8a41b18dacfe5e89e3cd87d58ed79308ae208911c4439b89b2310b064e95",
+  "permissions_sha256": "ca3660f2d1d05809d1b8fb5b245c03d640484091d761216039b272c5dc50c13c",
+  "browser_databases_read": false
+}

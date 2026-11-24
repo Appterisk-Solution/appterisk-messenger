@@ -22,7 +22,7 @@ pub const REGISTRY: &[Platform] = &[
         symbol: "WA",
         status: "verified",
         available: true,
-        limitations: "Verified on v0.3.0; v0.4.0 upgrade acceptance pending. Title counts may represent conversations.",
+        limitations: "Three-account authentication across the v0.4.0 upgrade and restarts is user-confirmed. Title counts may represent conversations.",
     },
     Platform {
         id: "telegram",
@@ -32,7 +32,7 @@ pub const REGISTRY: &[Platform] = &[
         symbol: "TG",
         status: "experimental",
         available: true,
-        limitations: "Real authentication, restart persistence, media and notifications require independent user acceptance. Unread activity uses native notifications only.",
+        limitations: "Authentication across three restarts is user-confirmed. Multiple Telegram identities, media and notifications still need independent acceptance. Native notification activity only.",
     },
     Platform {
         id: "discord",
@@ -40,9 +40,9 @@ pub const REGISTRY: &[Platform] = &[
         entry_url: "https://discord.com/app",
         origin: "https://discord.com",
         symbol: "DC",
-        status: "unavailable",
-        available: false,
-        limitations: "Awaiting Telegram validation and official authentication review.",
+        status: "experimental",
+        available: true,
+        limitations: "Normal email/password or mobile QR login only. Embedded authentication, restart persistence, messages, media, voice and notifications need independent user acceptance. No numeric unread claims.",
     },
     Platform {
         id: "messenger",
@@ -128,7 +128,7 @@ impl Platform {
             && crate::desktop_policy::PERMISSIONS.contains(&kind)
     }
     pub fn unread(&self, title: &str) -> Option<crate::desktop_policy::Unread> {
-        // Telegram's title grammar has not been independently validated. Never interpret chat names.
+        // Unvalidated provider title grammars never interpret chat names or invent counts.
         if self.id == "whatsapp" {
             crate::desktop_policy::unread_from_title(title)
         } else {
@@ -139,6 +139,31 @@ impl Platform {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn discord_uses_only_official_https_navigation_and_separate_permissions() {
+        let dc = available("discord").unwrap();
+        assert_eq!(dc.status, "experimental");
+        for path in ["/app", "/login", "/channels/@me", "/oauth2/authorize"] {
+            assert!(dc.navigation(&Url::parse(&format!("https://discord.com{path}")).unwrap()));
+        }
+        for url in [
+            "https://discord.com.evil.test/login",
+            "https://discordapp.com/login",
+            "http://discord.com/app",
+            "https://user:password@discord.com/login",
+            "https://discord.com:8443/login",
+            "https://accounts.google.com/",
+            "discord://login",
+        ] {
+            assert!(!dc.navigation(&Url::parse(url).unwrap()));
+        }
+        assert!(!dc.permission("https://web.telegram.org", "notifications"));
+        assert!(!dc.permission("https://web.whatsapp.com", "microphone"));
+        assert!(dc.permission(dc.origin, "notifications"));
+        assert!(!dc.permission(dc.origin, "filesystem"));
+        assert!(dc.unread("(99) Secret channel name").is_none());
+        assert!(available("messenger").is_err());
+    }
     #[test]
     fn exact_origins_and_no_authentication_bypass() {
         let wa = available("whatsapp").unwrap();

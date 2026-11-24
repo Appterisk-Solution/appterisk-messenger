@@ -1,0 +1,12 @@
+{
+  "stage": "Discord validation",
+  "telegram_and_three_whatsapp_accounts_three_restarts": "passed_user_confirmed",
+  "discord_login_three_restarts": "pending_user_confirmation",
+  "discord_multi_account_isolation": "pending_user_confirmation",
+  "discord_messages_background_notifications_clicks": "pending_user_confirmation",
+  "discord_unread_activity": "pending_user_confirmation",
+  "discord_upload_download_voice": "pending_user_confirmation",
+  "later_providers": "not_implemented",
+  "signed": false,
+  "msi_upgrade": "not_tested"
+}

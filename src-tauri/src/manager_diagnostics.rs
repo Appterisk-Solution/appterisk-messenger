@@ -124,6 +124,7 @@ async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
         r.db.add("Second fixture", None)?;
         r.db.add("Third fixture", None)?;
         r.db.add_platform("Telegram fixture", None, "telegram")?;
+        r.db.add_platform("Discord fixture", None, "discord")?;
         let ids: Vec<_> =
             r.db.accounts()?
                 .iter()

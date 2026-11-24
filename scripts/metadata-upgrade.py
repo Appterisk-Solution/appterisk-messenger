@@ -16,6 +16,9 @@ def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True).encode(
 report={'schema':connection.execute('PRAGMA user_version').fetchone()[0],'account_count':len(accounts),'accounts_sha256':digest(accounts),'settings_sha256':digest(normalized),'permissions_sha256':digest(permissions),'browser_databases_read':False}
 connection.close()
 destination=Path(__file__).resolve().parent.parent/'docs'/'release-evidence-0.4.0'
+stage=sys.argv[2] if len(sys.argv)>2 else 'telegram'
+if stage not in ['telegram','discord']:raise ValueError('Unknown validation stage')
+if stage!='telegram':destination=destination/stage
 destination.mkdir(parents=True,exist_ok=True)
 if sys.argv[1]=='before':
     (destination/'metadata-before.json').write_text(json.dumps(report,indent=2)+'\n')
@@ -23,7 +26,7 @@ else:
     before=json.loads((destination/'metadata-before.json').read_text())
     for key in ['account_count','accounts_sha256','settings_sha256','permissions_sha256']:
         if report[key]!=before[key]:raise RuntimeError('Metadata preservation check failed: '+key)
-    if before['schema']!=2 or report['schema']!=3:raise RuntimeError('Expected schema 2 to 3 migration')
+    if before['schema']!=(2 if stage=='telegram' else 3) or report['schema']!=3:raise RuntimeError('Unexpected schema transition for '+stage+' validation')
     report['preserved']=True
     (destination/'metadata-after.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report))

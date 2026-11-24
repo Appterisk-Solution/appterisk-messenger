@@ -1,7 +1,8 @@
 # Changelog
 
-## 0.4.0 - staged Telegram validation
+## 0.4.0 - staged multi-platform validation
 
+- Recorded user-confirmed Telegram and WhatsApp three-restart authentication; enabled experimental Discord with exact-origin policies and expanded native fixtures.
 - Recorded user acceptance of v0.3.0 and created `v0.3.0-stable`.
 - Added a shared native platform registry, origin-scoped navigation/permissions/notifications and an experimental Telegram WebK account option. Other providers remain unavailable pending validation.
 - Transactional schema v3 preserves all WhatsApp metadata and browser profile identifiers; reserves future custom URL, color, grouping and enabled metadata.

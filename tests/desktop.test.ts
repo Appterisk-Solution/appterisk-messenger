@@ -15,6 +15,19 @@ let desktop:DesktopSnapshot,accounts:Snapshot;
 beforeEach(()=>{setActivePinia(createPinia());locale.value='en';desktop=desktopSnapshot();accounts=accountSnapshot();invoke.mockReset();invoke.mockImplementation(async(name)=>name==='desktop_snapshot'?structuredClone(desktop):name==='account_snapshot'?structuredClone(accounts):undefined);vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue({x:88,y:76,width:900,height:650} as DOMRect);});
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();setLanguage('en');});
 describe('desktop preferences and security shell',()=>{
+  it('shows the native Discord registry identity without claiming a numeric unread count',async()=>{
+    accounts.platforms=[{id:'discord',name:'Discord',symbol:'DC',entry_url:'https://discord.com/app',origin:'https://discord.com',available:true,status:'experimental',limitations:'Real login acceptance pending'}];
+    accounts.accounts[0]!.platform='discord';desktop.unread.a={count:null,unread:true};
+    const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();
+    const item=wrapper.findAll('.account-item')[0]!;
+    expect(item.attributes('title')).toBe('Discord - Account 1');
+    expect(item.get('.wa-dot').text()).toBe('DC');
+    expect(item.get('.unread-badge').text()).toBe('\u2022');
+    await wrapper.get('.add-account').trigger('click');await flushPromises();
+    const discord=wrapper.get('.platform-option');expect(discord.attributes('disabled')).toBeUndefined();
+    await discord.trigger('click');expect(wrapper.get('[role="dialog"]').text()).toContain('Experimental:');
+    wrapper.unmount();
+  });
   it('offers Telegram as experimental while unavailable services cannot be selected',async()=>{
     accounts.platforms=[{id:'whatsapp',name:'WhatsApp',symbol:'WA',entry_url:'https://web.whatsapp.com/',origin:'https://web.whatsapp.com',available:true,status:'verified',limitations:''},{id:'telegram',name:'Telegram',symbol:'TG',entry_url:'https://web.telegram.org/',origin:'https://web.telegram.org',available:true,status:'experimental',limitations:'User acceptance pending'},{id:'gmail',name:'Gmail',symbol:'GM',entry_url:'https://mail.google.com/',origin:'https://mail.google.com',available:false,status:'unavailable',limitations:'Authentication review pending'}];
     const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();

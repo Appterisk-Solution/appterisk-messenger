@@ -2,7 +2,7 @@
 
 Date: 2026-11-24, Asia/Kuala_Lumpur. Branch: feature/multi-platform. Stable checkpoint: v0.3.0-stable.
 
-This is Phase A/B validation, not completion of the requested final multi-platform release. Telegram remains experimental. Subsequent providers, custom websites, grouping/search/duplication, extended navigation and suspension/resource work remain scheduled after shared-architecture acceptance.
+This is incremental Phase A/B/C validation, not completion of the requested final multi-platform release. Telegram and Discord remain experimental. Subsequent providers, custom websites, grouping/search/duplication, extended navigation and suspension/resource work remain scheduled after shared-architecture acceptance.
 
 ## Automated results
 
@@ -11,8 +11,8 @@ TypeScript, ESLint and 17 frontend tests passed. Rust formatting, all-target Cli
 ## Manual results
 
 - v0.3.0 baseline: passed by user confirmation, including three accounts through three full restarts.
-- v0.4.0 WhatsApp upgrade authentication and three restart cycles: pending.
-- Telegram real authentication, three restarts, multiple accounts, incoming/background delivery, notifications and clicks, activity indicators, uploads/downloads: pending.
+- v0.4.0 WhatsApp upgrade authentication and three restart cycles: passed by user confirmation.
+- Telegram real authentication and three full restarts: passed by user confirmation. Multiple Telegram identities, incoming/background delivery, notifications/clicks, activity clearing and media remain pending.
 - Native UI visual review: English platform grid and experimental warning inspected in a visible isolated empty-shell window, then closed normally. An initial hidden-window attempt was abandoned. Review caught hidden customization controls; corrected to a rendered container and verified through frontend tests. Final native visual check confirmed the color and notification controls render correctly; the dialog scrolls when content exceeds the window height.
 - MSI upgrade, installer signing, automatic updates, macOS/Linux: not verified/implemented.
 
@@ -31,3 +31,13 @@ On first installed launch, schema 2 migrated to 3. Metadata-only SHA-256 compari
 ## Telegram checkpoint confirmation
 
 The user replied "test pass" to the explicit Telegram and all three existing WhatsApp accounts through three complete restarts checkpoint. Record authentication persistence and post-upgrade WhatsApp sessions as user-confirmed. Telegram notifications, media, unread clearing and multiple Telegram identities remain independently pending; this response does not establish those results. Proceed to the next incremental Discord stage, keeping Telegram experimental.
+
+## Phase C: Discord validation stage
+
+After user-confirmed Telegram and WhatsApp restart acceptance, Discord was enabled experimentally using the same isolated native manager. Messenger, Instagram, Slack, Teams, Gmail and custom websites remain unavailable pending their sequential implementation and authentication review. No new SQLite migration is required; existing profile identifiers and metadata remain unchanged.
+
+Official entry, supported-browser and normal authentication requirements were reviewed in primary Discord documentation (linked in PLATFORM_COMPATIBILITY.md). Strict origin policy allows only https://discord.com navigation/permission requests; no third-party OAuth or native-protocol bypass was added. Voice, media, notifications and real Discord authentication remain unverified. Frontend checks passed with 18 tests; Rust formatting/Clippy and 22 unit tests passed. Native and installer checks for this stage are recorded separately under release-evidence-0.4.0/discord to retain the original Telegram evidence.
+
+Discord-stage native results: five-profile manager passed seed, three cold restarts and removal (3522b9b8-39f1-4d25-b8a7-c2b94ee8fda7); storage isolation passed three cold restarts across three disposable profiles (efc90021-7233-40a6-90ea-bc55ebf96e64); native public attachment download/no-clobber fixture passed (82029843-c060-4b1e-829f-e0cef5a722cb). None of these are real Discord login/message tests. The original Telegram binary/installers are retained under src-tauri/target/release/staged-telegram-326a956 and their archived paths and original hashes are recorded in telegram-artifact-archive.json.
+
+Discord-stage production packaging generated executable, NSIS and MSI artifacts. The NSIS 0.4.0 refresh exited 0 and preserved all 4,400 existing profile files by count/size/mtime. The installed payload hash matches the package. Metadata SHA-256 comparison passed for all four existing accounts, desktop settings and origin permissions; schema remained 3. The installed app was reopened for user acceptance. Discord login and post-refresh real sessions remain pending user confirmation. Original Telegram-stage evidence is unchanged.

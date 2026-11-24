@@ -367,6 +367,14 @@ CREATE TABLE origin_permissions(account_id TEXT NOT NULL REFERENCES accounts(id)
         );
         assert_eq!(db.permissions().unwrap()[0].decision, "allow");
         let tg = db.add_platform("Telegram", None, "telegram").unwrap();
+        let dc = db.add_platform("Discord", None, "discord").unwrap();
+        assert_ne!(dc.id, tg.id);
+        assert_ne!(dc.profile_key, tg.profile_key);
+        assert_eq!(dc.platform, "discord");
+        assert!(
+            db.add_platform("Invalid Discord adoption", Some(id), "discord")
+                .is_err()
+        );
         let second = db.add_platform("Telegram 2", None, "telegram").unwrap();
         assert_ne!(tg.id, second.id);
         assert_ne!(
@@ -385,6 +393,7 @@ CREATE TABLE origin_permissions(account_id TEXT NOT NULL REFERENCES accounts(id)
             && p.decision == "deny"));
         db.remove(&tg.id, true).unwrap();
         assert_eq!(db.permissions().unwrap().len(), 1);
+        assert_eq!(db.account(&dc.id).unwrap().platform, "discord");
         let violations: i64 = db
             .connection
             .query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |r| {

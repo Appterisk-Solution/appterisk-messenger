@@ -19,6 +19,6 @@ for(const [cycle,stage] of ['seed','verify','verify','verify','remove'].entries(
   for(const id of report.account_ids){if(!log.some(e=>e.event==='browser_process_exited'&&e.fields.profile_id===id&&e.fields.exit_kind===0))throw new Error(`Missing normal BrowserProcessExited acknowledgment for ${id}`);}
   if(!log.some(e=>e.event==='shutdown_complete'&&e.fields.browser_processes_exited))throw new Error('Centralized graceful shutdown was not acknowledged.');
   writeFileSync(join(root,'diagnostic-runs',run,`manager-cycle-${cycle}.json`),JSON.stringify({...report,normal_browser_exit:true,centralized_shutdown:true},null,2));
-  console.log(`Manager ${stage} ${cycle}: passed with independent WhatsApp and Telegram native profiles and normal shutdown.`);
+  console.log(`Manager ${stage} ${cycle}: passed with independent WhatsApp, Telegram and Discord native profiles and normal shutdown.`);
 }
 console.log(`Manager reports: ${join(root,'diagnostic-runs',run)}`);
