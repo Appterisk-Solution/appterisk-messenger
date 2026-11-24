@@ -1,0 +1,11 @@
+{
+  "version": "0.5.0",
+  "notes": "# Appterisk Messenger 0.5.0 - experimental updater release\r\n\r\n- Adds Settings > Updates with Stable/Beta preferences, manual checking, download progress, cancellation, release notes and explicit Install and Restart confirmation.\r\n- Uses official Tauri 2 updater signatures, signed-version verification, HTTPS-only sources and GitHub-hosted channel manifests. NSIS automatic installs only; MSI remains manual.\r\n- Preserves account UUIDs, existing profile paths, SQLite schema 3 and desktop preferences. Graceful WebView2 shutdown precedes installer handoff.\r\n- Adds a clear Remove account button in Settings > Accounts with confirmation; browser profiles are retained. No account was removed automatically.\r\n- Adds protected release workflows and separate artifact/signing verification.\r\n\r\nThis is experimental: Windows publisher signatures are not configured, full installed automatic-update E2E/manual acceptance is pending, Discord acceptance remains pending, and offline key recovery backup requires owner action. This prerelease must not advance Stable. No authentication/session-preservation pass for v0.5.0 is fabricated. v0.4.0 WhatsApp and Telegram restart results remain historical user-confirmed evidence.\r\n",
+  "pub_date": "2026-11-24T13:40:13Z",
+  "platforms": {
+    "windows-x86_64-nsis": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSVThmL0l0b0JJVG82STNJTEV0Rit5SmpTZ0h5S1lsMVdYWFhBc0RtR0M5d1VrYjYwS1Y2TTBndUgxYksvNk9nRXE2blVvV1U2bFFJUndYVVpCWUpXYVNydDNFVHR2ZVFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NTI3Mjk4CWZpbGU6QXBwdGVyaXNrIE1lc3Nlbmdlcl8wLjUuMF94NjQtc2V0dXAuZXhlCXZlcnNpb246MC41LjAKclBVUXc1RmFXU1d3QTA3RXN2eWdpajJtZ3dXbHQrK1AwV0lPU3Zhc05iOHZQT0dKRjBOUXdHL1JZNXZ3bytKMGZqSVR5cmVQdTEzMTRTMzEyc3JtQkE9PQo=",
+      "url": "https://github.com/Appterisk-Solution/appterisk-messenger/releases/download/v0.5.0/Appterisk-Messenger_0.5.0_x64-setup.exe"
+    }
+  }
+}
