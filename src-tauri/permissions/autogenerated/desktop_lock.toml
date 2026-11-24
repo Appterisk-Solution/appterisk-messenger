@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-lock"
+description = "Enables the desktop_lock command without any pre-configured scope."
+commands.allow = ["desktop_lock"]
+
+[[permission]]
+identifier = "deny-desktop-lock"
+description = "Denies the desktop_lock command without any pre-configured scope."
+commands.deny = ["desktop_lock"]

@@ -141,6 +141,12 @@ pub fn request_shutdown(app: &tauri::AppHandle, exit_code: i32) {
     let _ = app.emit_to("main", "probe-shutdown", json!({"state":"waiting"}));
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        #[cfg(windows)]
+        {
+            crate::windows_permissions::deny_pending(&app);
+            crate::windows_notifications::clear(&app);
+            crate::windows_downloads::shutdown(&app);
+        }
         let state = app.state::<ProbeState>();
         let mut runtime = state.0.lock().await;
         let account_browsers = match crate::accounts::close_for_shutdown(&app).await {
@@ -240,6 +246,9 @@ pub async fn open_probe(
     fixture: bool,
 ) -> Result<()> {
     trusted(&caller)?;
+    if crate::desktop::locked(&app) {
+        return Err(err("APP_LOCKED", "Unlock the application first."));
+    }
     if !crate::accounts::diagnostic_mode() {
         return Err(err(
             "DIAGNOSTIC_MODE",
@@ -494,6 +503,9 @@ pub async fn set_probe_visibility(
     visible: bool,
 ) -> Result<()> {
     trusted(&caller)?;
+    if visible && crate::desktop::locked(&app) {
+        return Err(err("APP_LOCKED", "Unlock the application first."));
+    }
     let _serial = state.0.lock().await;
     for i in 0..3 {
         if let Some(view) = app.get_webview(&label(i)) {

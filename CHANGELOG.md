@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0 — 2026-11-24
+
+- Preserved the verified 0.2.0 source at `d401ca5`, tag `v0.2.0-stable`, before implementation.
+- Added native WebView2 notification interception and Windows toast submission with account routing, global/per-account preferences, DND, sound, hidden previews and duplicate-object prevention. No fake message notifications or JS Notification shim.
+- Added provider-title unread indicators, aggregate tray activity and startup initialization of restored background accounts without switch reloads.
+- Added a native tray menu, genuine default X exit, opt-in tray/minimized/startup behavior and explicit graceful Quit. Added next/previous-account shortcuts in shell and native views.
+- Added native downloads with save dialogs, directory selection, progress, cancellation, safe filenames and atomic no-clobber collision handling. Uploads use native WebView2 file input.
+- Added origin-scoped permission prompts, remembered decisions and revocation, plus a salted Argon2id local lock, failed-attempt rate limiting and inactivity timeout.
+- Added actual English/Simplified Chinese/Traditional Chinese production-shell translations, desktop settings and permission/lock UI.
+- Added SQLite migration v2 while preserving UUIDs, profile paths, account ordering/selection, adoption and existing authentication directories. Expanded remote-origin IPC and native lock/download regression coverage.
+- Built unsigned x64 executable/NSIS/MSI packages; the NSIS upgrade preserved all 2,995 existing profile files during installation. Real message/media/authentication acceptance is recorded separately in RELEASE_0.3.0.md.
+
+No signed installer, automatic updater, MSI upgrade, calling or cross-platform compatibility claim is made. Background delivery, notification clicks/unread updates and real attachment/voice behavior require actual user confirmation.
+
 ## 0.2.0 — 2026-11-24
 
 - Replaced the default compatibility dashboard with a sidebar account manager, empty/loading/error states, account context actions and settings dialogs.

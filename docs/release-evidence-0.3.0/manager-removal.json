@@ -1,0 +1,61 @@
+{
+  "account_ids": [
+    "4ffae867-c06f-4938-a194-23ec50fba248",
+    "c503c3e2-0d4b-4f57-a938-a4122414db49",
+    "c4b9dc51-80ce-4e57-a738-4c182a216b01"
+  ],
+  "adoption_in_place": true,
+  "dialog_hidden": true,
+  "lock_hides_native_views": true,
+  "locked_command_rejected": true,
+  "native_resize": true,
+  "passed": true,
+  "password_unlock_restores_account": true,
+  "remote_origin_ipc": [
+    {
+      "account_add": "denied",
+      "account_snapshot": "denied",
+      "desktop_password": "denied",
+      "desktop_permission": "denied",
+      "desktop_permission_reply": "denied",
+      "desktop_save": "denied",
+      "desktop_snapshot": "denied",
+      "desktop_unlock": "denied",
+      "origin": "https://web.whatsapp.com",
+      "reload_probe": "denied",
+      "restart_mode": "denied"
+    },
+    {
+      "account_add": "denied",
+      "account_snapshot": "denied",
+      "desktop_password": "denied",
+      "desktop_permission": "denied",
+      "desktop_permission_reply": "denied",
+      "desktop_save": "denied",
+      "desktop_snapshot": "denied",
+      "desktop_unlock": "denied",
+      "origin": "https://web.whatsapp.com",
+      "reload_probe": "denied",
+      "restart_mode": "denied"
+    },
+    {
+      "account_add": "denied",
+      "account_snapshot": "denied",
+      "desktop_password": "denied",
+      "desktop_permission": "denied",
+      "desktop_permission_reply": "denied",
+      "desktop_save": "denied",
+      "desktop_snapshot": "denied",
+      "desktop_unlock": "denied",
+      "origin": "https://web.whatsapp.com",
+      "reload_probe": "denied",
+      "restart_mode": "denied"
+    }
+  ],
+  "scope": "Disposable profiles only. No real login, notification or media claims.",
+  "single_visible_view": true,
+  "stage": "remove",
+  "switch_without_reload": true,
+  "normal_browser_exit": true,
+  "centralized_shutdown": true
+}

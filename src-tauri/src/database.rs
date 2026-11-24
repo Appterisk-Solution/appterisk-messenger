@@ -63,7 +63,7 @@ impl Database {
         let version: i64 = connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(db_error)?;
-        if version > 1 {
+        if version > 2 {
             return Err("Database was created by a newer application; downgrade refused.".into());
         }
         let tx = connection.transaction().map_err(db_error)?;
@@ -72,6 +72,9 @@ impl Database {
 CREATE TABLE accounts(id TEXT PRIMARY KEY, name TEXT NOT NULL, platform TEXT NOT NULL CHECK(platform='whatsapp'), profile_key TEXT NOT NULL UNIQUE, icon TEXT NOT NULL, display_order INTEGER NOT NULL, notifications_enabled INTEGER NOT NULL CHECK(notifications_enabled IN (0,1)), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), last_active_at TEXT);
 CREATE TABLE application_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT INTO schema_migrations(version) VALUES(1); PRAGMA user_version=1;").map_err(db_error)?;
+        }
+        if version < 2 {
+            tx.execute_batch("CREATE TABLE origin_permissions(account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,origin TEXT NOT NULL,kind TEXT NOT NULL,decision TEXT NOT NULL CHECK(decision IN ('ask','allow','deny')),PRIMARY KEY(account_id,origin,kind)); INSERT INTO schema_migrations(version) VALUES(2); PRAGMA user_version=2;").map_err(db_error)?;
         }
         tx.commit().map_err(db_error)?;
         Ok(Self { connection })
@@ -160,7 +163,7 @@ INSERT INTO schema_migrations(version) VALUES(1); PRAGMA user_version=1;").map_e
     }
     pub fn save_settings(&mut self, settings: &Settings) -> Result<()> {
         if !["system", "dark", "light"].contains(&settings.theme.as_str())
-            || !["system", "en", "ms", "zh"].contains(&settings.language.as_str())
+            || !["system", "en", "ms", "zh", "zh-CN", "zh-TW"].contains(&settings.language.as_str())
         {
             return Err("Unsupported preference.".into());
         }
@@ -203,6 +206,69 @@ INSERT INTO schema_migrations(version) VALUES(1); PRAGMA user_version=1;").map_e
             .map_err(db_error)?;
         tx.execute("INSERT INTO application_settings(key,value) VALUES('preferences',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[serde_json::to_string(&settings).map_err(|_|"Cannot encode settings.")?]).map_err(db_error)?;
         tx.commit().map_err(db_error)
+    }
+    pub fn desktop_config(&self) -> Result<crate::desktop_policy::DesktopConfig> {
+        self.read_value("desktop")?
+            .map(|v| serde_json::from_str(&v).map_err(|_| "Desktop settings are invalid.".into()))
+            .unwrap_or_else(|| Ok(Default::default()))
+    }
+    pub fn save_desktop_config(
+        &mut self,
+        config: &crate::desktop_policy::DesktopConfig,
+    ) -> Result<()> {
+        config.validate()?;
+        self.write_value(
+            "desktop",
+            Some(&serde_json::to_string(config).map_err(|_| "Cannot encode desktop settings")?),
+        )
+    }
+    pub fn lock_hash(&self) -> Result<Option<String>> {
+        self.read_value("lock_hash")
+    }
+    pub fn save_lock_hash(&mut self, hash: Option<&str>) -> Result<()> {
+        self.write_value("lock_hash", hash)
+    }
+    fn read_value(&self, key: &str) -> Result<Option<String>> {
+        self.connection
+            .query_row(
+                "SELECT value FROM application_settings WHERE key=?1",
+                [key],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(db_error)
+    }
+    fn write_value(&mut self, key: &str, value: Option<&str>) -> Result<()> {
+        if let Some(value) = value {
+            self.connection.execute("INSERT INTO application_settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,value]).map_err(db_error)?;
+        } else {
+            self.connection
+                .execute("DELETE FROM application_settings WHERE key=?1", [key])
+                .map_err(db_error)?;
+        }
+        Ok(())
+    }
+    pub fn permissions(&self) -> Result<Vec<crate::desktop_policy::Permission>> {
+        let mut s=self.connection.prepare("SELECT account_id,origin,kind,decision FROM origin_permissions ORDER BY account_id,kind").map_err(db_error)?;
+        s.query_map([], |r| {
+            Ok(crate::desktop_policy::Permission {
+                account_id: r.get(0)?,
+                origin: r.get(1)?,
+                kind: r.get(2)?,
+                decision: r.get(3)?,
+            })
+        })
+        .map_err(db_error)?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(db_error)
+    }
+    pub fn permission_save(&mut self, account: &str, kind: &str, decision: &str) -> Result<()> {
+        self.account(account)?;
+        if !crate::desktop_policy::valid_permission(crate::desktop_policy::ORIGIN, kind, decision) {
+            return Err("Unsupported origin permission.".into());
+        }
+        self.connection.execute("INSERT INTO origin_permissions(account_id,origin,kind,decision) VALUES(?1,?2,?3,?4) ON CONFLICT(account_id,origin,kind) DO UPDATE SET decision=excluded.decision",params![account,crate::desktop_policy::ORIGIN,kind,decision]).map_err(db_error)?;
+        Ok(())
     }
 }
 fn valid_name(name: &str) -> Result<&str> {
@@ -274,7 +340,7 @@ mod tests {
                 .query_row("SELECT COUNT(*) FROM schema_migrations", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            1
+            2
         );
         drop(db);
         std::fs::remove_file(path).unwrap();
@@ -314,6 +380,35 @@ mod tests {
             .unwrap();
         drop(db);
         assert!(Database::open(&path).is_err());
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn desktop_migration_preserves_existing_v1_accounts_and_settings() {
+        let (path, mut db) = temporary();
+        let a = db.add("Existing account", Some(LEGACY_IDS[0])).unwrap();
+        db.activate(&a.id).unwrap();
+        db.connection.execute_batch("DROP TABLE origin_permissions;DELETE FROM schema_migrations WHERE version=2;PRAGMA user_version=1;").unwrap();
+        drop(db);
+        let mut db = Database::open(&path).unwrap();
+        assert_eq!(db.account(&a.id).unwrap().profile_key, a.profile_key);
+        assert_eq!(
+            db.settings().unwrap().last_active_account,
+            Some(a.id.clone())
+        );
+        let mut config = db.desktop_config().unwrap();
+        assert!(!config.close_to_tray);
+        assert!(config.hide_previews);
+        config.dnd = true;
+        db.save_desktop_config(&config).unwrap();
+        db.permission_save(&a.id, "microphone", "deny").unwrap();
+        assert!(db.permission_save(&a.id, "filesystem", "allow").is_err());
+        drop(db);
+        let db = Database::open(&path).unwrap();
+        assert_eq!(db.desktop_config().unwrap(), config);
+        assert_eq!(db.permissions().unwrap()[0].account_id, a.id);
+        assert_eq!(db.permissions().unwrap()[0].decision, "deny");
+        assert!(db.lock_hash().unwrap().is_none());
+        drop(db);
         std::fs::remove_file(path).unwrap();
     }
 }

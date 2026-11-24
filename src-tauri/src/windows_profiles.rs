@@ -47,7 +47,8 @@ pub fn account_events(app: &tauri::AppHandle, view: &Webview, id: &str) -> Resul
                     let mut kind=COREWEBVIEW2_KEY_EVENT_KIND_KEY_UP;args.KeyEventKind(&mut kind)?;
                     if kind==COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN && windows::Win32::UI::Input::KeyboardAndMouse::GetKeyState(windows::Win32::UI::Input::KeyboardAndMouse::VK_CONTROL.0 as i32)<0{
                         let mut code=0;args.VirtualKey(&mut code)?;
-                        let key=match code{49..=57=>char::from_u32(code).map(|c|c.to_string()),82=>Some("r".into()),188=>Some(",".into()),_=>None};
+                        let shift=windows::Win32::UI::Input::KeyboardAndMouse::GetKeyState(windows::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT.0 as i32)<0;
+                        let key=crate::desktop_policy::shortcut(code,true,shift);
                         if let Some(key)=key{args.SetHandled(true)?;let _=shortcut_app.emit_to("main","account-shortcut",json!({"key":key}));}
                     }
                 }Ok(())
@@ -81,7 +82,7 @@ pub fn close_controller(view: &Webview) -> Result<(), String> {
 }
 
 // COM getters allocate with CoTaskMemAlloc. Only call this for non-sensitive metadata getters.
-unsafe fn string_property(
+pub(crate) unsafe fn string_property(
     read: impl FnOnce(*mut PWSTR) -> windows::core::Result<()>,
 ) -> windows::core::Result<String> {
     let mut raw = PWSTR::null();

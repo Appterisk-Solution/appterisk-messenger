@@ -17,6 +17,16 @@ fn main() {
             "account_remove",
             "settings_save",
             "restart_mode",
+            "accounts_initialize",
+            "desktop_snapshot",
+            "desktop_save",
+            "desktop_lock",
+            "desktop_unlock",
+            "desktop_password",
+            "desktop_download_directory",
+            "desktop_download_cancel",
+            "desktop_permission",
+            "desktop_permission_reply",
         ]),
     ))
     .expect("Tauri permission generation failed")

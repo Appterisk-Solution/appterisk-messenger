@@ -1,44 +1,69 @@
-# Appterisk Messenger 0.2.0
+# Appterisk Messenger 0.3.0
 
-A Windows desktop account manager for the official WhatsApp Web interface, built with Rust, Tauri 2, WebView2 Evergreen, Vue 3, TypeScript, Tailwind CSS, Pinia and SQLite. There is no external backend. Chat content is rendered by WhatsApp in native WebViews, not recreated in Vue.
+A Windows account manager displaying official WhatsApp Web through independent native WebView2 profiles. Rust, Tauri 2, Vue 3, TypeScript, Tailwind CSS, Pinia and SQLite; no Electron, CEF, unofficial WhatsApp API or external backend.
 
-The user confirmed three distinct accounts retained independent logins through three restarts on the 0.1.2 baseline before implementation began, then separately confirmed all three adopted accounts remained logged in through three restarts in the installed 0.2.0 manager. The browser-path fix and graceful shutdown are preserved. Automated fixtures are recorded separately from these real-user results. See [release status](docs/RELEASE_0.2.0.md).
+The verified 0.2.0 baseline is preserved at Git commit `d401ca5`, annotated tag `v0.2.0-stable`. Version 0.3.0 preserves the ordinary Windows profile-path fix, account UUIDs, profile adoption, ordering and graceful shutdown. Real three-account authentication passed on 0.2.0; 0.3.0 manual results are tracked separately in [release verification](docs/RELEASE_0.3.0.md).
 
-## Use the account manager
+## Install and accounts
 
-Open `src-tauri/target/release/appterisk-messenger.exe`, or install the unsigned Windows x64 NSIS/MSI package under `src-tauri/target/release/bundle/`.
+The installed executable is `%LOCALAPPDATA%\Appterisk Messenger\appterisk-messenger.exe`. Release artifacts:
 
-1. Click **Add account**. Give a new account a name, or explicitly choose **Adopt Existing account 1/2/3** to reuse a compatibility profile in place.
-2. New accounts are linked inside the official WhatsApp interface. Existing profile adoption does not copy, move or reset browser data.
-3. Click sidebar icons to switch. Right-click an icon or use **Account options** to rename, customize, reload, reorder or remove it.
-4. Drag icons to reorder, or use the accessible up/down controls in **Settings → Accounts**.
-5. **Settings → General** offers light/dark/system themes, a startup account override and saved language preferences. Without an override, the last selected account is restored. The current shell is English; WhatsApp controls its own language.
+- `src-tauri/target/release/appterisk-messenger.exe`
+- `src-tauri/target/release/bundle/nsis/Appterisk Messenger_0.3.0_x64-setup.exe`
+- `src-tauri/target/release/bundle/msi/Appterisk Messenger_0.3.0_x64_en-US.msi`
 
-Removal requires confirmation and removes metadata only; the on-disk browser profile is retained. It does not log a device out of WhatsApp. Use WhatsApp's Linked devices on the phone to unlink. Removed compatibility profiles can be explicitly adopted again. Removed new-account profile directories are retained without an automatic reimport UI.
+Installers are unsigned. The NSIS upgrade from 0.2.0 passed with all 2,995 existing profile files unchanged in count, size and modification time during installation. The installed payload matches the final NSIS package. This is filesystem preservation evidence, not a claim that manual authentication or notification tests passed. MSI upgrade, signing, automatic updates and other operating systems are not claimed verified.
 
-`Ctrl+1` through `Ctrl+9` select accounts, `Ctrl+R` reloads, and `Ctrl+,` opens settings. Native account views forward these accelerators while focused. Closing with X closes controllers and waits for BrowserProcessExited rather than force-terminating them.
+Add and name accounts, or explicitly adopt an existing compatibility profile in place. Adoption never copies or migrates browser authentication databases. Click sidebar icons to switch; right-click or use Account options to rename, customize, reload, reorder or remove. Drag icons or use Settings → Accounts up/down controls to reorder. Removal requires confirmation and retains browser data; unlink through WhatsApp Linked devices on the phone if desired. Original compatibility profiles can be adopted again. Account count has no artificial software limit.
 
-## Data and security
+## Notifications and unread indicators
 
-Application data lives under `%LOCALAPPDATA%\com.appterisk.messenger`:
+1. Enable each account under **Settings → Notifications**. Existing per-account preferences are preserved, including disabled notifications.
+2. Under **Privacy and Security**, select that account and explicitly allow **Notifications**, or approve the origin-scoped prompt when WhatsApp requests access. Permission changes reload that account. WhatsApp's own notification settings and Windows notification settings must also permit delivery.
+3. Global notifications, Do Not Disturb, sound and hidden previews are configurable. Hidden previews are on by default. Locking always hides new notification previews.
 
-- `appterisk.sqlite3`: accounts, application settings and schema migration metadata only.
-- `accounts/<permanent UUID>`: new persistent browser profiles.
-- `compatibility-profiles/<original UUID>`: existing profiles reused in place after explicit adoption.
-- `logs/persistence.jsonl`: non-sensitive lifecycle/runtime/path metadata.
-- `diagnostic-runs/<run UUID>`: retained synthetic test profiles and reports.
+Only genuine WebView2 `NotificationReceived` events produce native Windows notifications. No test-message button, fabricated message events, JavaScript Notification replacement or private WhatsApp API is used. Toasts identify the configured account; clicking uses a validated local activation URI and selects that existing account, subject to the application lock. Payload text is bounded and XML-escaped; provider URLs, icons and actions cannot choose application commands. Duplicate native notification objects are suppressed; identical content from distinct notifications is not deduplicated as though it were the same message.
 
-Browser-facing Windows paths are ordinary absolute paths normalized with `dunce::simplified`; canonical paths are used for confinement checks. Incognito is explicitly disabled. Profiles and IDs are never regenerated on startup. No browser authentication databases are copied or migrated. An exclusive application lock and per-account locks prevent concurrent new-version instances from opening the same profiles. Close older Appterisk versions before use or upgrade.
+When previews are enabled, text from actual provider notifications is passed to Windows in memory; Windows may retain notification content in its own notification history. Appterisk does not write message content to SQLite or logs. Existing host toasts are cleared when locking, disabling notifications, entering DND, changing privacy mode or quitting.
 
-Only the trusted local shell has application command capabilities. Remote children have no capability grants, and every privileged handler separately verifies the caller label and origin. Main-frame navigation stays on the exact official HTTPS origin; valid HTTP(S) popup links open in the system browser. New sensitive permission requests and downloads are denied in this release. No identity spoofing, TLS relaxation or sandbox bypass is used.
+Unread numbers use narrowly recognized WhatsApp document-title signals and can represent unread chats rather than messages. Unrecognized titles do not invent a count or clear a known indicator. A real notification can set a generic dot. The tray shows a red activity dot and aggregate tooltip; `+` indicates additional unread activity without an exact count. Provider changes can invalidate these signals. Real incoming-message and read-state acceptance must be confirmed separately.
 
-Notification preferences are saved metadata; notification delivery is not implemented or verified. Unread counts, background messages, media/calls/download support, macOS and Linux are unverified. No unread badges are fabricated. Installer upgrade evidence distinguishes filesystem preservation from user-confirmed authentication continuity.
+## Background and tray
 
-The NSIS upgrade from 0.1.2 to 0.2.0 passed with all 2,228 existing profile files unchanged in count, size and modification timestamp. The final installed payload was verified separately, followed by user-confirmed three-account login persistence across three restarts. MSI upgrade remains untested.
+All restored accounts initialize after the shell is ready and unlocked. Existing controllers are reused on switching, with only the active view visible. Inactive views stay alive; no suspend, background-security bypass or browser-identity spoof is used. WebView2 can throttle hidden pages, and WhatsApp can suppress notifications for a foreground chat. Sleep, network conditions and Windows Focus Assist also affect delivery; hidden/minimized/tray delivery requires real-message verification.
 
-## Build and checks
+The tray menu offers Open, account selection, notifications, DND, Settings, Lock and Quit. Left click restores the window. **X genuinely exits by default.** Close-to-tray, minimize-to-tray, launch on Windows startup and start minimized are explicit settings and default off. Quit always uses controller closure and BrowserProcessExited acknowledgments; no forced browser termination is used. Instance and profile locks plus Tauri single-instance routing prevent simultaneous new-version profile access. Close older versions before use or upgrade.
 
-Windows needs Node/npm, Rust stable MSVC, Visual Studio C++ Build Tools and Windows SDK, and WebView2 Evergreen. The wrappers initialize Cargo/MSVC for Git Bash or PowerShell. See [build setup](docs/BUILD_SETUP.md).
+## Attachments and permissions
+
+Uploads use official WhatsApp attachment controls and WebView2's native file picker. Downloads use native WebView2 events, an optional save dialog, a configurable directory, progress and cancellation in **Settings → Downloads**. Staging files are finalized atomically without overwriting an existing destination; collisions receive numbered filenames. Filenames are sanitized for traversal and Windows reserved names. Downloads are never automatically executed, and WhatsApp receives no general filesystem IPC.
+
+The credential-free native attachment fixture passed actual download byte-integrity and collision checks. Real image/document/video/audio upload/download, cancellation and voice-message compatibility remain separate manual checks.
+
+Only the exact official WhatsApp HTTPS origin can request notifications, camera, microphone, clipboard read or autoplay through the host. Unknown origins and kinds are denied. A host prompt requires an explicit decision, supports remembering it for that account/origin and expires denied after one minute. Settings allow revocation; changing a permission reloads the account to stop active capture. Windows device/privacy controls remain authoritative. Voice/video calling is not claimed supported without verification.
+
+## Local lock and languages
+
+Configure a local password under **Privacy and Security**, then use the sidebar/tray Lock action or an inactivity timeout. The lock hides all native children, rejects account operations while locked and restores the previous account after unlocking. On restart, a configured lock starts locked. Passwords use Argon2id with OS-random salts; plaintext passwords are never stored. Unlock attempts are rate-limited.
+
+This is a UI lock, not browser-profile encryption or protection from another Windows administrator. Browser pages and ongoing background activity can remain alive while locked. Accounts are initialized after the first unlock on a locked startup.
+
+The production shell supports English, Simplified Chinese and Traditional Chinese, including desktop settings, permission prompts and lock controls. WhatsApp manages its own language. The original developer probe remains English. Legacy language preferences remain readable, with English fallback where a locale is unsupported.
+
+Shortcuts work in the shell and focused native account views:
+
+- Ctrl+Tab / Ctrl+Shift+Tab: next / previous account.
+- Ctrl+1–9: select account.
+- Ctrl+R: reload the active account.
+- Ctrl+Comma: settings.
+
+## Data and development
+
+Data stays under `%LOCALAPPDATA%\com.appterisk.messenger`: application metadata in `appterisk.sqlite3`, new profiles in `accounts/<UUID>`, adopted profiles in `compatibility-profiles/<original UUID>`, metadata-only logs in `logs`, and retained synthetic fixtures in `diagnostic-runs`. SQLite schema v2 adds origin permissions; lock hashes and desktop preferences are application settings. Browser cookies, authentication tokens, encryption keys and messages are never placed in the application database.
+
+Canonical paths enforce confinement; `dunce::simplified` supplies ordinary absolute paths to WebView2. Incognito is explicitly disabled. No startup, shutdown or upgrade browser-storage cleanup is performed. Only the local shell has command capabilities, and privileged handlers also verify caller label/origin. Remote-origin rejection is tested independently against the official WhatsApp origin.
+
+Windows requires Node/npm, Rust stable MSVC, Visual Studio C++ tools/Windows SDK and WebView2 Evergreen. Wrappers initialize Cargo/MSVC from Git Bash or PowerShell. Close running development binaries before rebuilding.
 
 ```sh
 npm ci
@@ -51,15 +76,13 @@ npm run cargo -- clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D
 npm run cargo -- test --manifest-path src-tauri/Cargo.toml
 npm run test:isolation
 npm run test:manager
+npm run test:desktop
 npm run tauri build
+npm run test:upgrade
 ```
 
-Close a running development executable before rebuilding it on Windows. `test:isolation` remains mandatory: three disposable profiles, durable cookies, localStorage, IndexedDB, Blob/non-extractable-key checks, session-cookie expiry, IPC rejection and three cold restarts. `test:manager` adds real native switching/reuse, modal visibility, resizing, metadata restart/adoption/removal, actual remote-origin IPC rejection and normal shutdown acknowledgments. It opens the public WhatsApp origin in disposable, unlinked profiles; no authentication acceptance is inferred.
+The upgrade test refuses to downgrade an existing newer install and requires all Appterisk processes closed. `--refresh` verifies the same final target version without replacing initial upgrade evidence. None of these synthetic tests establish real WhatsApp delivery or authentication.
 
-## Optional diagnostics
-
-Use **Settings → Diagnostics → Restart in diagnostic mode**, or `npm run dev:diagnostics`, or launch the executable with `--diagnostics`. The original three-panel compatibility probe is preserved and can return to the account manager through an orderly restart. Do not open it concurrently with an older app using the same profiles.
-
-The independent 0.1.2 controls remain available via `npm run build:controls`, `npm run test:native`, `npm run test:tauri` and `npm run test:edge`. These use separate profile directories. See the [persistence root-cause report](docs/AUTH_PERSISTENCE_0.1.2.md), [architecture](docs/ARCHITECTURE.md), [changelog](CHANGELOG.md) and [current implementation status](docs/IMPLEMENTATION_PLAN.md). Historical probe documentation is retained under `docs/LEGACY_*`.
+Use **Settings → Diagnostics** or launch with `--diagnostics` after quitting to access the preserved compatibility probe. Independent 0.1.2 native/minimal-Tauri/Edge controls remain available through existing scripts. See [architecture](docs/ARCHITECTURE.md), [release evidence](docs/RELEASE_0.3.0.md), [changelog](CHANGELOG.md) and [build setup](docs/BUILD_SETUP.md).
 
 Independent and unofficial; not affiliated with WhatsApp or Meta.

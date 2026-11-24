@@ -1,0 +1,13 @@
+﻿{
+    "version":  "0.3.0",
+    "rust_unit_tests":  19,
+    "frontend_tests":  16,
+    "manager_run":  "2e8a34d0-39c9-4096-a674-6fe2cac770ba",
+    "manager_three_restarts_passed":  true,
+    "isolation_run":  "c696a15b-a2b5-4a27-b2a4-358d0a7b002e",
+    "isolation_three_restarts_passed":  true,
+    "native_download_run":  "447a32a5-e02e-499c-94b5-88ffc8d41d1c",
+    "native_download_integrity_and_collision_passed":  true,
+    "real_message_notifications_verified":  false,
+    "real_authentication_0_3_0_verified":  false
+}

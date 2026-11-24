@@ -8,5 +8,5 @@ export default ts.config(
   ...ts.configs.recommended,
   ...vue.configs['flat/essential'],
   { files: ['**/*.vue'], languageOptions: { parserOptions: { parser: ts.parser } } },
-  { files: ['src/**/*.{ts,vue}', 'public/*.js', 'tests/**/*.ts', 'src-tauri/diagnostics/*.js'], languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', indexedDB: 'readonly', navigator: 'readonly', location: 'readonly', caches: 'readonly', crypto: 'readonly', Blob: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', HTMLElement: 'readonly', ResizeObserver: 'readonly', KeyboardEvent: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly' } } }
+  { files: ['src/**/*.{ts,vue}', 'public/*.js', 'tests/**/*.ts', 'src-tauri/diagnostics/*.js'], languageOptions: { globals: { window: 'readonly', document: 'readonly', localStorage: 'readonly', indexedDB: 'readonly', navigator: 'readonly', location: 'readonly', caches: 'readonly', crypto: 'readonly', Blob: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', HTMLElement: 'readonly', HTMLInputElement: 'readonly', HTMLSelectElement: 'readonly', ResizeObserver: 'readonly', KeyboardEvent: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly' } } }
 );

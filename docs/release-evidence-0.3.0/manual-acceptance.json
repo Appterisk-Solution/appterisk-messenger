@@ -1,0 +1,23 @@
+﻿{
+    "date":  "2026-11-24",
+    "version":  "0.3.0",
+    "manual":  {
+                   "incoming_active":  "pending_user_confirmation",
+                   "incoming_hidden":  "pending_user_confirmation",
+                   "incoming_minimized":  "pending_user_confirmation",
+                   "incoming_tray":  "pending_user_confirmation",
+                   "notification_account_name":  "pending_user_confirmation",
+                   "notification_click_account":  "pending_user_confirmation",
+                   "unread_arrival_and_read":  "pending_user_confirmation",
+                   "real_attachment_upload_download_cancel":  "pending_user_confirmation",
+                   "microphone_voice_messages":  "pending_user_confirmation",
+                   "application_lock":  "pending_user_confirmation",
+                   "three_account_three_restarts":  "pending_user_confirmation",
+                   "real_accounts_after_upgrade":  "pending_user_confirmation"
+               },
+    "installer_profile_filesystem_preservation":  "passed_automated",
+    "signed":  false,
+    "msi_upgrade":  "not_tested",
+    "automatic_updates":  "not_implemented",
+    "cross_platform":  "not_verified"
+}

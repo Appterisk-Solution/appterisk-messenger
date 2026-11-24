@@ -32,6 +32,7 @@ jobs:
       - run: npm run tauri build
       - run: npm run test:isolation
       - run: node scripts/manager-tests.mjs
+      - run: node scripts/desktop-tests.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: unsigned-windows-account-manager

@@ -1,5 +1,7 @@
 # Implementation status — 0.2.0
 
+> Current work: 0.3.0 desktop features are implemented and built; see [release verification](RELEASE_0.3.0.md) and the updated [architecture](ARCHITECTURE.md). Automated suites and NSIS filesystem-preservation checks passed. The 0.3.0 real-message/media/authentication matrix remains separate from the historical 0.2.0 results below.
+
 The prerequisite passed before implementation: after being asked specifically about three distinct accounts through three full application restarts, the user replied, “tested 3 account and no issue”. This confirms the 0.1.2 baseline; it is not a new-version authentication claim.
 
 Implemented: production sidebar shell; native single-account content area; dynamic account add/rename/switch/reorder/reload/remove; explicit existing-profile adoption; Rust SQLite schema/migrations and metadata; persistent UUID/profile mappings; startup/last-selection preferences; light/dark/system shell themes; saved language/notification preferences; native WebView reuse/hiding/resizing/dialog blocking; instance/profile locks; preserved browser-path fix and graceful browser exit; least-privilege command capabilities; restricted navigation/system-browser popups; optional original diagnostic probe.

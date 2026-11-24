@@ -14,7 +14,7 @@ use std::{
 };
 use tauri::{
     Emitter, Manager, Webview, WebviewUrl,
-    webview::{NewWindowResponse, PermissionResponse, WebviewBuilder},
+    webview::{NewWindowResponse, WebviewBuilder},
 };
 type Result<T> = std::result::Result<T, String>;
 pub static RESTART_MODE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
@@ -37,7 +37,11 @@ pub fn synthetic_mode() -> bool {
         && std::env::args().any(|a| {
             matches!(
                 a.as_str(),
-                "--isolation-diagnostic" | "--manager-diagnostic" | "--remote-ipc-diagnostic"
+                "--isolation-diagnostic"
+                    | "--manager-diagnostic"
+                    | "--remote-ipc-diagnostic"
+                    | "--desktop-diagnostic"
+                    | "--ui-diagnostic"
             )
         })
 }
@@ -50,6 +54,16 @@ pub struct Runtime {
     #[cfg(windows)]
     browsers: HashMap<String, crate::windows_profiles::BrowserLifetime>,
     _instance: File,
+}
+impl Runtime {
+    #[cfg(all(windows, debug_assertions))]
+    pub(crate) fn track_browser(
+        &mut self,
+        id: &str,
+        browser: crate::windows_profiles::BrowserLifetime,
+    ) {
+        self.browsers.insert(id.into(), browser);
+    }
 }
 #[derive(Default)]
 struct Selection {
@@ -111,7 +125,8 @@ fn authorize(caller: &Webview) -> Result<()> {
         Ok(())
     }
 }
-fn production() -> Result<()> {
+fn production(app: &tauri::AppHandle) -> Result<()> {
+    crate::desktop::ensure_unlocked(app)?;
     if diagnostic_mode() {
         Err("Account management is disabled in compatibility diagnostic mode.".into())
     } else if health::closing() {
@@ -154,6 +169,7 @@ pub struct Snapshot {
     synthetic: bool,
 }
 fn snapshot(app: &tauri::AppHandle, r: &Runtime) -> Result<Snapshot> {
+    crate::desktop::sync(app, r)?;
     let accounts = r.db.accounts()?;
     let legacy = LEGACY_IDS
         .iter()
@@ -189,6 +205,7 @@ pub async fn account_snapshot(
 #[tauri::command]
 pub async fn restart_mode(app: tauri::AppHandle, caller: Webview, diagnostic: bool) -> Result<()> {
     authorize(&caller)?;
+    crate::desktop::ensure_unlocked(&app)?;
     RESTART_MODE.store(if diagnostic { 1 } else { 2 }, Ordering::SeqCst);
     crate::probe::request_shutdown(&app, 0);
     Ok(())
@@ -202,7 +219,7 @@ pub async fn account_add(
     legacy_id: Option<String>,
 ) -> Result<Snapshot> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     let mut r = state.0.lock().await;
     if let Some(id) = legacy_id.as_deref() {
         if !LEGACY_IDS.contains(&id) {
@@ -235,7 +252,7 @@ pub async fn account_update(
     notifications_enabled: bool,
 ) -> Result<Snapshot> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     let mut r = state.0.lock().await;
     r.db.update(&id, &name, &icon, notifications_enabled)?;
     snapshot(&app, &r)
@@ -248,7 +265,7 @@ pub async fn account_reorder(
     ids: Vec<String>,
 ) -> Result<Snapshot> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     let mut r = state.0.lock().await;
     r.db.reorder(&ids)?;
     snapshot(&app, &r)
@@ -261,7 +278,7 @@ pub async fn settings_save(
     settings: Settings,
 ) -> Result<Snapshot> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     let mut r = state.0.lock().await;
     // Last-active state is owned by successful native switching, never by stale UI preferences.
     let mut settings = settings;
@@ -279,6 +296,7 @@ pub(crate) fn layout(app: &tauri::AppHandle, r: &Runtime, bounds: Option<Bounds>
     }
     if let Some(id) = &r.selection.active
         && r.selection.visible(id)
+        && !crate::desktop::blocked(app)
         && let Some(v) = app.get_webview(&label(id))
     {
         if let Some(bounds) = bounds {
@@ -301,7 +319,7 @@ pub(crate) fn block(
     r.selection.blocked = blocked;
     layout(app, r, Some(bounds))
 }
-pub async fn switch(
+pub async fn initialize(
     app: &tauri::AppHandle,
     r: &mut Runtime,
     id: &str,
@@ -353,12 +371,14 @@ pub async fn switch(
         }
         let event_app = app.clone();
         let event_id = id.to_string();
+        let title_app = app.clone();
+        let title_id = id.to_string();
+        let external_app = app.clone();
         let builder=WebviewBuilder::new(&name,WebviewUrl::External("https://web.whatsapp.com/".parse().map_err(|_|"Invalid provider URL.")?))
             .data_directory(browser_path.clone()).incognito(false).devtools(false).disable_drag_drop_handler()
             .on_navigation(provider_url)
-            .on_new_window(|url,_|{if external_url(&url){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
-            .on_download(|_,_|false)
-            .on_permission_request(|_,_|PermissionResponse::Deny)
+            .on_new_window(move|url,_|{if external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
+            .on_document_title_changed(move|_,title|crate::desktop::title(&title_app,&title_id,&title))
             .on_page_load(move|_,payload|{if provider_url(payload.url()){let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));}});
         let window = app.get_window("main").ok_or("Main window unavailable.")?;
         // Create offscreen so a new native child can never cover an open shell dialog.
@@ -376,6 +396,15 @@ pub async fn switch(
             Ok(browser) => {
                 r.browsers.insert(id.into(), browser);
                 crate::windows_profiles::account_events(app, &view, id)?;
+                crate::windows_permissions::attach(app, &view, id)?;
+                crate::windows_downloads::attach(app, &view, id)?;
+                if crate::windows_notifications::attach(app, &view, id).is_err() {
+                    health::log(
+                        app,
+                        "notification_api_unavailable",
+                        json!({"profile_id":id}),
+                    );
+                }
             }
             Err(_) => {
                 let _ = crate::windows_profiles::close_controller(&view);
@@ -392,11 +421,22 @@ pub async fn switch(
             json!({"profile_id":id,"absolute_directory":browser_path,"canonical_directory":canonical,"incognito":false,"cleanup":false}),
         );
     }
+    Ok(())
+}
+pub async fn switch(
+    app: &tauri::AppHandle,
+    r: &mut Runtime,
+    id: &str,
+    bounds: Bounds,
+) -> Result<()> {
+    initialize(app, r, id, bounds).await?;
+    let name = label(id);
     // Persist only after native creation succeeds. Switching reuses the loaded controller.
     r.db.activate(id)?;
     r.selection.active = Some(id.into());
     layout(app, r, Some(bounds))?;
     if !r.selection.blocked
+        && !crate::desktop::blocked(app)
         && let Some(view) = app.get_webview(&name)
     {
         view.set_focus()
@@ -418,9 +458,26 @@ pub async fn account_switch(
     bounds: Bounds,
 ) -> Result<()> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     let mut r = state.0.lock().await;
-    switch(&app, &mut r, &id, bounds).await
+    switch(&app, &mut r, &id, bounds).await?;
+    crate::desktop::selected(&app, &id);
+    Ok(())
+}
+#[tauri::command]
+pub async fn accounts_initialize(
+    app: tauri::AppHandle,
+    caller: Webview,
+    state: tauri::State<'_, AccountState>,
+    bounds: Bounds,
+) -> Result<()> {
+    authorize(&caller)?;
+    production(&app)?;
+    let mut r = state.0.lock().await;
+    for account in r.db.accounts()? {
+        initialize(&app, &mut r, &account.id, bounds).await?;
+    }
+    layout(&app, &r, Some(bounds))
 }
 #[tauri::command]
 pub async fn account_layout(
@@ -431,7 +488,7 @@ pub async fn account_layout(
     blocked: bool,
 ) -> Result<()> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     bounds
         .validate()
         .map_err(|_| "Invalid browser content bounds.")?;
@@ -446,7 +503,7 @@ pub async fn account_reload(
     id: String,
 ) -> Result<()> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     let r = state.0.lock().await;
     r.db.account(&id)?;
     app.get_webview(&label(&id))
@@ -463,7 +520,7 @@ pub async fn account_remove(
     confirmed: bool,
 ) -> Result<Snapshot> {
     authorize(&caller)?;
-    production()?;
+    production(&app)?;
     let mut r = state.0.lock().await;
     remove_account(&app, &mut r, &id, confirmed)?;
     snapshot(&app, &r)

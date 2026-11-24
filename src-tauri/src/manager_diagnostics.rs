@@ -41,7 +41,7 @@ fn ready(view: &Webview) -> Result<()> {
 fn remote_denial(view: &Webview) -> Result<Value> {
     evaluate(
         view,
-        r#"window.__appteriskIpcDiagnostic=null;void(async()=>{const out={origin:location.origin};for(const command of ['account_snapshot','account_add','restart_mode','reload_probe']){if(!window.__TAURI_INTERNALS__?.invoke){out[command]='no-bridge';continue;}try{await window.__TAURI_INTERNALS__.invoke(command,{});out[command]='ACCEPTED';}catch(e){out[command]=/forbidden|not allowed|denied/i.test(String(e))?'denied':'unexpected-error';}}window.__appteriskIpcDiagnostic=out;})();true"#,
+        r#"window.__appteriskIpcDiagnostic=null;void(async()=>{const out={origin:location.origin};for(const command of ['account_snapshot','account_add','restart_mode','reload_probe','desktop_snapshot','desktop_save','desktop_unlock','desktop_password','desktop_permission','desktop_permission_reply']){if(!window.__TAURI_INTERNALS__?.invoke){out[command]='no-bridge';continue;}try{await window.__TAURI_INTERNALS__.invoke(command,{});out[command]='ACCEPTED';}catch(e){out[command]=/forbidden|not allowed|denied/i.test(String(e))?'denied':'unexpected-error';}}window.__appteriskIpcDiagnostic=out;})();true"#,
     )?;
     for _ in 0..100 {
         let result = evaluate(view, "window.__appteriskIpcDiagnostic ?? null")?;
@@ -52,6 +52,12 @@ fn remote_denial(view: &Webview) -> Result<Value> {
                     "account_add",
                     "restart_mode",
                     "reload_probe",
+                    "desktop_snapshot",
+                    "desktop_save",
+                    "desktop_unlock",
+                    "desktop_password",
+                    "desktop_permission",
+                    "desktop_permission_reply",
                 ]
                 .iter()
                 .any(|c| !matches!(result[*c].as_str(), Some("denied" | "no-bridge")))
@@ -203,6 +209,42 @@ async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
     {
         return Err("Native resize did not match logical content bounds".into());
     }
+    // A locked trusted shell must not be able to show a native account either.
+    {
+        let s = app.state::<crate::desktop::DesktopState>();
+        let mut d = s.0.lock().map_err(|_| "Desktop unavailable")?;
+        d.lock.hash = Some(crate::app_lock::hash("public synthetic lock fixture")?);
+    }
+    drop(r);
+    crate::desktop::lock_now(app).await?;
+    for account in &accounts {
+        if visible(
+            &app.get_webview(&accounts::label(&account.id))
+                .ok_or("Missing locked view")?,
+        )? {
+            return Err("Application lock left a native view visible".into());
+        }
+    }
+    let caller = app.get_webview("main").ok_or("No trusted shell")?;
+    if accounts::account_switch(
+        app.clone(),
+        caller.clone(),
+        app.state::<accounts::AccountState>(),
+        ids[0].clone(),
+        resized,
+    )
+    .await
+    .is_ok()
+    {
+        return Err("Locked trusted shell could switch accounts".into());
+    }
+    crate::desktop::desktop_unlock(app.clone(), caller, "public synthetic lock fixture".into())
+        .await?;
+    {
+        let s = app.state::<crate::desktop::DesktopState>();
+        s.0.lock().map_err(|_| "Desktop unavailable")?.lock.hash = None;
+    }
+    let mut r = state.0.lock().await;
     if stage == "remove" {
         let removed = &accounts[0];
         let path = database::profile_path(&r.root, removed)?;
@@ -229,6 +271,6 @@ async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
     drop(r);
     // Exercise the same centralized close path as X/Exit. RunEvent waits for acknowledgments.
     Ok(
-        json!({"passed":true,"stage":stage,"account_ids":ids,"remote_origin_ipc":remote_results,"single_visible_view":true,"switch_without_reload":true,"dialog_hidden":true,"native_resize":true,"adoption_in_place":true,"scope":"Disposable profiles only. No real login, notification or media claims."}),
+        json!({"passed":true,"stage":stage,"account_ids":ids,"remote_origin_ipc":remote_results,"single_visible_view":true,"switch_without_reload":true,"dialog_hidden":true,"native_resize":true,"adoption_in_place":true,"lock_hides_native_views":true,"locked_command_rejected":true,"password_unlock_restores_account":true,"scope":"Disposable profiles only. No real login, notification or media claims."}),
     )
 }
