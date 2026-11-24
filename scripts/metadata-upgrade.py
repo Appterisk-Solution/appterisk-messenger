@@ -17,8 +17,9 @@ report={'schema':connection.execute('PRAGMA user_version').fetchone()[0],'accoun
 connection.close()
 destination=Path(__file__).resolve().parent.parent/'docs'/'release-evidence-0.4.0'
 stage=sys.argv[2] if len(sys.argv)>2 else 'telegram'
-if stage not in ['telegram','discord']:raise ValueError('Unknown validation stage')
-if stage!='telegram':destination=destination/stage
+if stage not in ['telegram','discord','updater']:raise ValueError('Unknown validation stage')
+if stage=='updater':destination=destination.parent/'release-evidence-0.5.0'
+elif stage!='telegram':destination=destination/stage
 destination.mkdir(parents=True,exist_ok=True)
 if sys.argv[1]=='before':
     (destination/'metadata-before.json').write_text(json.dumps(report,indent=2)+'\n')
