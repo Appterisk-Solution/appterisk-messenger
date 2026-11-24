@@ -1,0 +1,71 @@
+name: Protected signed release
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        type: choice
+        options: [stable, beta]
+        required: true
+      version:
+        type: string
+        required: true
+permissions:
+  contents: read
+env:
+  RELEASE_CHANNEL: ${{ inputs.channel }}
+  RELEASE_VERSION: ${{ inputs.version }}
+concurrency:
+  group: release-${{ inputs.channel }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  build:
+    needs: checks
+    runs-on: windows-latest
+    environment: release-signing
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 24, cache: npm}
+      - run: npm ci
+      - name: Require owner signing configuration
+        shell: pwsh
+        env:
+          PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          BACKUP_CONFIRMED: ${{ vars.OFFLINE_KEY_BACKUP_CONFIRMED }}
+        run: |
+          if (!$env:PRIVATE_KEY) { throw 'Production updater signing credentials are required.' }
+          if ($env:BACKUP_CONFIRMED -ne 'true') { throw 'Owner must confirm encrypted offline key backup.' }
+          if ($env:RELEASE_CHANNEL -eq 'stable' -and !$env:CERTIFICATE) { throw 'Trusted stable publishing requires Windows Authenticode configuration.' }
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          if ($version -ne $env:RELEASE_VERSION) { throw 'Release version mismatch.' }
+      - name: Build signed release
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: node scripts/release-build.mjs
+      - run: node scripts/package-release.mjs $env:RELEASE_VERSION $env:RELEASE_CHANNEL
+      - name: Upload draft only
+        env: {GITHUB_TOKEN: '${{ github.token }}'}
+        run: node scripts/publish-release.mjs draft release-out $env:RELEASE_CHANNEL
+  publish:
+    needs: build
+    runs-on: windows-latest
+    environment: release-publish
+    permissions: {contents: write}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 24}
+      - name: Download approved draft artifacts
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: gh release download "v$env:RELEASE_VERSION" --repo $env:GITHUB_REPOSITORY --dir release-out
+      - name: Publish release then manifest last
+        env: {GITHUB_TOKEN: '${{ github.token }}'}
+        run: node scripts/publish-release.mjs publish release-out $env:RELEASE_CHANNEL

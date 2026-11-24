@@ -165,7 +165,7 @@ pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), St
                                     0x80004005u32 as i32,
                                 ))
                             })?;
-                            if d.lock.locked || d.prompts.len() >= 8 {
+                            if d.lock.locked || crate::health::closing() || d.prompts.len() >= 8 {
                                 "deny".to_owned()
                             } else {
                                 d.permissions

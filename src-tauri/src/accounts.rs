@@ -53,7 +53,7 @@ pub struct Runtime {
     profile_locks: HashMap<String, File>,
     #[cfg(windows)]
     browsers: HashMap<String, crate::windows_profiles::BrowserLifetime>,
-    _instance: File,
+    _instance: Option<File>,
 }
 impl Runtime {
     #[cfg(all(windows, debug_assertions))]
@@ -114,7 +114,7 @@ impl AccountState {
             profile_locks: HashMap::new(),
             #[cfg(windows)]
             browsers: HashMap::new(),
-            _instance: instance,
+            _instance: Some(instance),
         })))
     }
 }
@@ -138,6 +138,26 @@ fn production(app: &tauri::AppHandle) -> Result<()> {
 pub fn label(id: &str) -> String {
     format!("account-{id}")
 }
+pub async fn release_for_update(app: &tauri::AppHandle) -> Result<()> {
+    let state = app.state::<AccountState>();
+    let mut r = state.0.lock().await;
+    r.db.close_for_update()?;
+    r.profile_locks.clear();
+    #[cfg(windows)]
+    r.browsers.clear();
+    r._instance.take();
+    Ok(())
+}
+pub async fn recover_after_update(app: &tauri::AppHandle) -> Result<()> {
+    let state = app.state::<AccountState>();
+    let mut r = state.0.lock().await;
+    if r._instance.is_none() {
+        r._instance = Some(acquire(&r.root.join("application.lock"))?);
+        r.db = Database::open(&r.root.join("appterisk.sqlite3"))?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 fn provider_url(url: &tauri::Url) -> bool {
     crate::platforms::get("whatsapp").unwrap().navigation(url)
@@ -198,6 +218,7 @@ pub async fn account_snapshot(
 ) -> Result<Snapshot> {
     authorize(&caller)?;
     let r = state.0.lock().await;
+    production(&app)?;
     snapshot(&app, &r)
 }
 
@@ -221,6 +242,7 @@ pub async fn account_add(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     if let Some(id) = legacy_id.as_deref() {
         if !LEGACY_IDS.contains(&id) {
             return Err("Unknown compatibility profile.".into());
@@ -259,6 +281,7 @@ pub async fn account_update(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     r.db.update(&id, &name, &icon, notifications_enabled)?;
     snapshot(&app, &r)
 }
@@ -272,6 +295,7 @@ pub async fn account_reorder(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     r.db.reorder(&ids)?;
     snapshot(&app, &r)
 }
@@ -285,6 +309,7 @@ pub async fn settings_save(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     // Last-active state is owned by successful native switching, never by stale UI preferences.
     let mut settings = settings;
     settings.last_active_account = r.db.settings()?.last_active_account;
@@ -467,6 +492,7 @@ pub async fn account_switch(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     switch(&app, &mut r, &id, bounds).await?;
     crate::desktop::selected(&app, &id);
     Ok(())
@@ -481,6 +507,7 @@ pub async fn accounts_initialize(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     for account in
         r.db.accounts()?
             .into_iter()
@@ -504,6 +531,7 @@ pub async fn account_layout(
         .validate()
         .map_err(|_| "Invalid browser content bounds.")?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     block(&app, &mut r, bounds, blocked)
 }
 #[tauri::command]
@@ -516,6 +544,7 @@ pub async fn account_reload(
     authorize(&caller)?;
     production(&app)?;
     let r = state.0.lock().await;
+    production(&app)?;
     r.db.account(&id)?;
     app.get_webview(&label(&id))
         .ok_or("Select the account before reloading.")?
@@ -533,6 +562,7 @@ pub async fn account_remove(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
+    production(&app)?;
     remove_account(&app, &mut r, &id, confirmed)?;
     snapshot(&app, &r)
 }

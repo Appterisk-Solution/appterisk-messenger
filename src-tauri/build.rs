@@ -1,4 +1,11 @@
 fn main() {
+    for name in [
+        "APPTERISK_UPDATER_PUBKEY",
+        "APPTERISK_STABLE_ENDPOINT",
+        "APPTERISK_BETA_ENDPOINT",
+    ] {
+        println!("cargo:rerun-if-env-changed={name}");
+    }
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "open_probe",
@@ -27,6 +34,12 @@ fn main() {
             "desktop_download_cancel",
             "desktop_permission",
             "desktop_permission_reply",
+            "update_snapshot",
+            "update_preferences",
+            "update_check",
+            "update_download",
+            "update_cancel",
+            "update_install",
         ]),
     ))
     .expect("Tauri permission generation failed")

@@ -141,58 +141,12 @@ pub fn request_shutdown(app: &tauri::AppHandle, exit_code: i32) {
     let _ = app.emit_to("main", "probe-shutdown", json!({"state":"waiting"}));
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        #[cfg(windows)]
-        {
-            crate::windows_permissions::deny_pending(&app);
-            crate::windows_notifications::clear(&app);
-            crate::windows_downloads::shutdown(&app);
-        }
-        let state = app.state::<ProbeState>();
-        let mut runtime = state.0.lock().await;
-        let account_browsers = match crate::accounts::close_for_shutdown(&app).await {
-            Ok(browsers) => browsers,
-            Err(_) => {
-                shutdown_blocked(
-                    &app,
-                    "Could not close account views. Retry closing the window.",
-                );
-                return;
-            }
-        };
-        if close_all(&app).is_err() {
+        if prepare_shutdown(&app).await.is_err() {
             shutdown_blocked(
                 &app,
-                "Could not close native views. Retry closing the window.",
+                "Browser shutdown could not finish. Retry closing the window.",
             );
             return;
-        }
-        runtime.fixture = None;
-        #[cfg(windows)]
-        {
-            let mut browsers = runtime.browsers.clone();
-            browsers.extend(account_browsers);
-            let completed = tauri::async_runtime::spawn_blocking(move || {
-                let start = std::time::Instant::now();
-                while !browsers
-                    .iter()
-                    .all(|browser| browser.exited.load(Ordering::SeqCst))
-                {
-                    if start.elapsed() > std::time::Duration::from_secs(15) {
-                        return false;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(50));
-                }
-                true
-            })
-            .await
-            .unwrap_or(false);
-            if !completed {
-                shutdown_blocked(
-                    &app,
-                    "WebView2 has not finished releasing a profile. The app remains open; retry closing after other Appterisk instances are closed.",
-                );
-                return;
-            }
         }
         health::log(
             &app,
@@ -219,7 +173,6 @@ pub fn request_shutdown(app: &tauri::AppHandle, exit_code: i32) {
                 return;
             }
         }
-        drop(runtime);
         app.exit(exit_code);
     });
 }
@@ -532,6 +485,53 @@ pub async fn reload_probe(
         .reload()
         .map_err(|_| err("RELOAD_FAILED", "Could not reload panel."))
 }
+pub async fn prepare_shutdown(app: &tauri::AppHandle) -> std::result::Result<(), String> {
+    #[cfg(windows)]
+    {
+        crate::windows_permissions::deny_pending(app);
+        crate::windows_notifications::clear(app);
+        crate::windows_downloads::shutdown(app);
+    }
+    let state = app.state::<ProbeState>();
+    let mut runtime = state.0.lock().await;
+    let account_browsers = match crate::accounts::close_for_shutdown(app).await {
+        Ok(browsers) => browsers,
+        Err(_) => {
+            return Err("Could not close account views.".into());
+        }
+    };
+    if close_all(app).is_err() {
+        return Err("Could not close native views.".into());
+    }
+    runtime.fixture = None;
+    #[cfg(windows)]
+    {
+        let mut browsers = runtime.browsers.clone();
+        browsers.extend(account_browsers);
+        let completed = tauri::async_runtime::spawn_blocking(move || {
+            let start = std::time::Instant::now();
+            while !browsers
+                .iter()
+                .all(|browser| browser.exited.load(Ordering::SeqCst))
+            {
+                if start.elapsed() > std::time::Duration::from_secs(15) {
+                    return false;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            true
+        })
+        .await
+        .unwrap_or(false);
+        if !completed {
+            return Err("WebView2 has not finished releasing a profile.".into());
+        }
+    }
+
+    drop(runtime);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

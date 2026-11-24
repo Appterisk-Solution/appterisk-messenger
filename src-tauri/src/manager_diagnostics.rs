@@ -44,7 +44,7 @@ fn ready(view: &Webview, origin: &str) -> Result<()> {
 fn remote_denial(view: &Webview, origin: &str) -> Result<Value> {
     evaluate(
         view,
-        r#"window.__appteriskIpcDiagnostic=null;void(async()=>{const out={origin:location.origin};for(const command of ['account_snapshot','account_add','restart_mode','reload_probe','desktop_snapshot','desktop_save','desktop_unlock','desktop_password','desktop_permission','desktop_permission_reply']){if(!window.__TAURI_INTERNALS__?.invoke){out[command]='no-bridge';continue;}try{await window.__TAURI_INTERNALS__.invoke(command,{});out[command]='ACCEPTED';}catch(e){out[command]=/forbidden|not allowed|denied/i.test(String(e))?'denied':'unexpected-error';}}window.__appteriskIpcDiagnostic=out;})();true"#,
+        r#"window.__appteriskIpcDiagnostic=null;void(async()=>{const out={origin:location.origin};for(const command of ['account_snapshot','account_add','restart_mode','reload_probe','desktop_snapshot','desktop_save','desktop_unlock','desktop_password','desktop_permission','desktop_permission_reply','update_snapshot','update_preferences','update_check','update_download','update_cancel','update_install']){if(!window.__TAURI_INTERNALS__?.invoke){out[command]='no-bridge';continue;}try{await window.__TAURI_INTERNALS__.invoke(command,{});out[command]='ACCEPTED';}catch(e){out[command]=/forbidden|not allowed|denied/i.test(String(e))?'denied':'unexpected-error';}}window.__appteriskIpcDiagnostic=out;})();true"#,
     )?;
     for _ in 0..100 {
         let result = evaluate(view, "window.__appteriskIpcDiagnostic ?? null")?;
@@ -61,6 +61,12 @@ fn remote_denial(view: &Webview, origin: &str) -> Result<Value> {
                     "desktop_password",
                     "desktop_permission",
                     "desktop_permission_reply",
+                    "update_snapshot",
+                    "update_preferences",
+                    "update_check",
+                    "update_download",
+                    "update_cancel",
+                    "update_install",
                 ]
                 .iter()
                 .any(|c| !matches!(result[*c].as_str(), Some("denied" | "no-bridge")))

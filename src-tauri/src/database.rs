@@ -66,6 +66,17 @@ impl Database {
         if version > 3 {
             return Err("Database was created by a newer application; downgrade refused.".into());
         }
+        if version > 0 && version < 3 {
+            let folder = path
+                .parent()
+                .ok_or("Metadata directory unavailable")?
+                .join("metadata-backups");
+            std::fs::create_dir_all(&folder).map_err(|_| "Cannot create local metadata backup")?;
+            let backup = folder.join(format!("schema-{version}-{}.sqlite3", Uuid::new_v4()));
+            connection
+                .backup("main", &backup, None::<fn(rusqlite::backup::Progress)>)
+                .map_err(db_error)?;
+        }
         let tx = connection.transaction().map_err(db_error)?;
         if version == 0 {
             tx.execute_batch("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
@@ -86,6 +97,22 @@ INSERT INTO schema_migrations(version) VALUES(3); PRAGMA user_version=3;").map_e
         }
         tx.commit().map_err(db_error)?;
         Ok(Self { connection })
+    }
+    pub fn close_for_update(&mut self) -> Result<()> {
+        let busy: i64 = self
+            .connection
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| row.get(0))
+            .map_err(db_error)?;
+        if busy != 0 {
+            return Err("Metadata is busy; retry installation later.".into());
+        }
+        let replacement = Connection::open_in_memory().map_err(db_error)?;
+        let original = std::mem::replace(&mut self.connection, replacement);
+        if let Err((connection, error)) = original.close() {
+            self.connection = connection;
+            return Err(db_error(error));
+        }
+        Ok(())
     }
     pub fn accounts(&self) -> Result<Vec<Account>> {
         let mut statement=self.connection.prepare("SELECT id,name,platform,profile_key,icon,display_order,notifications_enabled,created_at,updated_at,last_active_at FROM accounts ORDER BY display_order,id").map_err(db_error)?;
@@ -249,7 +276,7 @@ INSERT INTO schema_migrations(version) VALUES(3); PRAGMA user_version=3;").map_e
     pub fn save_lock_hash(&mut self, hash: Option<&str>) -> Result<()> {
         self.write_value("lock_hash", hash)
     }
-    fn read_value(&self, key: &str) -> Result<Option<String>> {
+    pub fn read_value(&self, key: &str) -> Result<Option<String>> {
         self.connection
             .query_row(
                 "SELECT value FROM application_settings WHERE key=?1",
@@ -259,7 +286,7 @@ INSERT INTO schema_migrations(version) VALUES(3); PRAGMA user_version=3;").map_e
             .optional()
             .map_err(db_error)
     }
-    fn write_value(&mut self, key: &str, value: Option<&str>) -> Result<()> {
+    pub fn write_value(&mut self, key: &str, value: Option<&str>) -> Result<()> {
         if let Some(value) = value {
             self.connection.execute("INSERT INTO application_settings(key,value) VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,value]).map_err(db_error)?;
         } else {
@@ -403,6 +430,26 @@ CREATE TABLE origin_permissions(account_id TEXT NOT NULL REFERENCES accounts(id)
         assert_eq!(violations, 0);
         drop(db);
         assert!(Database::open(&path).is_ok());
+    }
+    #[test]
+    fn updater_preferences_and_closed_database_reopen_preserve_accounts() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("metadata.sqlite3");
+        let mut db = Database::open(&path).unwrap();
+        let account = db.add("Fixture", None).unwrap();
+        db.write_value("updater", Some(r#"{"channel":"beta","automatic":false}"#))
+            .unwrap();
+        db.close_for_update().unwrap();
+        drop(db);
+        let db = Database::open(&path).unwrap();
+        assert_eq!(
+            db.account(&account.id).unwrap().profile_key,
+            account.profile_key
+        );
+        assert_eq!(
+            db.read_value("updater").unwrap().as_deref(),
+            Some(r#"{"channel":"beta","automatic":false}"#)
+        );
     }
     fn temporary() -> (PathBuf, Database) {
         let path = std::env::temp_dir().join(format!("appterisk-db-{}.sqlite", Uuid::new_v4()));

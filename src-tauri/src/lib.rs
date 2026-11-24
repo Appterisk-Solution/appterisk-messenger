@@ -14,6 +14,7 @@ mod platforms;
 mod probe;
 mod profile_paths;
 mod tray;
+mod updater;
 #[cfg(windows)]
 mod windows_desktop;
 #[cfg(windows)]
@@ -65,6 +66,7 @@ pub fn run() {
             }
             _app.manage(accounts::AccountState::open(root).map_err(std::io::Error::other)?);
             desktop::setup(_app.handle()).map_err(std::io::Error::other)?;
+            updater::setup(_app.handle()).map_err(std::io::Error::other)?;
             if accounts::synthetic_mode()
                 && std::env::args().any(|a| a == "--ui-diagnostic")
                 && let Some(w) = _app.get_window("main")
@@ -105,6 +107,12 @@ pub fn run() {
             desktop::desktop_download_directory,
             desktop::desktop_download_cancel,
             desktop::desktop_permission,
+            updater::update_snapshot,
+            updater::update_preferences,
+            updater::update_check,
+            updater::update_download,
+            updater::update_cancel,
+            updater::update_install,
             desktop::desktop_permission_reply
         ])
         .on_window_event(|window, event| {

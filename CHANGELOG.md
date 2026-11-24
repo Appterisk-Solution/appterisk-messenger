@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 - experimental secure updater
+
+- Official Tauri updater, signed-version verification, HTTPS GitHub channels and NSIS-only installation.
+- Localized update settings, progress, cancellation, confirmation and automatic checks.
+- Safe browser/metadata shutdown and profile-lock release before installer handoff; consistent metadata backups before existing forward migrations.
+- Encrypted owner signing setup, public key only in source, protected release/manifest/signature workflows.
+- Clear Remove account control with confirmation and profile retention.
+- Authenticode, full installed-updater E2E and manual acceptance remain pending; no trusted stable release claimed.
+
 ## 0.4.0 - staged multi-platform validation
 
 - Recorded user-confirmed Telegram and WhatsApp three-restart authentication; enabled experimental Discord with exact-origin policies and expanded native fixtures.

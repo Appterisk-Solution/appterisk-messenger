@@ -174,7 +174,9 @@ pub fn blocked(app: &tauri::AppHandle) -> bool {
         .unwrap_or(false)
 }
 pub fn ensure_unlocked(app: &tauri::AppHandle) -> Result<()> {
-    if locked(app) {
+    if crate::health::closing() {
+        Err("Application is preparing to close.".into())
+    } else if locked(app) {
         Err("APP_LOCKED".into())
     } else {
         Ok(())
@@ -362,6 +364,7 @@ pub async fn save_config(app: &tauri::AppHandle, config: DesktopConfig) -> Resul
     config.validate()?;
     let state = app.state::<AccountState>();
     let mut r = state.0.lock().await;
+    ensure_unlocked(app)?;
     let old = r.db.desktop_config()?;
     #[cfg(windows)]
     if old.launch_on_startup != config.launch_on_startup && !accounts::synthetic_mode() {
@@ -449,6 +452,7 @@ pub async fn desktop_password(
     let new = new_password.map(Zeroizing::new);
     let state = app.state::<AccountState>();
     let mut r = state.0.lock().await;
+    ensure_unlocked(&app)?;
     let old = r.db.lock_hash()?;
     let hash = tauri::async_runtime::spawn_blocking(move || {
         if old
@@ -525,6 +529,7 @@ pub async fn desktop_permission(
     ensure_unlocked(&app)?;
     let state = app.state::<AccountState>();
     let mut r = state.0.lock().await;
+    ensure_unlocked(&app)?;
     r.db.permission_save(&account_id, &kind, &decision)?;
     sync(&app, &r)?;
     drop(r);
@@ -553,6 +558,7 @@ pub async fn desktop_permission_reply(
     if remember || allow && prompt.kind == "notifications" {
         let state = app.state::<AccountState>();
         let mut r = state.0.lock().await;
+        ensure_unlocked(&app)?;
         if remember {
             r.db.permission_save(
                 &prompt.account_id,
