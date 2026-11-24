@@ -1,0 +1,12 @@
+[package]
+name = "appterisk-minimal-tauri-control"
+version = "0.1.2"
+edition = "2024"
+
+[build-dependencies]
+tauri-build = "2"
+
+[dependencies]
+appterisk-control-support = { path = "../control-support" }
+tauri = "=2.12.7"
+serde_json = "1"

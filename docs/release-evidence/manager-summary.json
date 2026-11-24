@@ -1,0 +1,16 @@
+{
+    "run":  "ca4872ae-e67b-4b60-a8b8-0e6a784551cd",
+    "cycles":  5,
+    "restart_verifications":  3,
+    "stages":  [
+                   "seed",
+                   "verify",
+                   "verify",
+                   "verify",
+                   "remove"
+               ],
+    "passed":  true,
+    "normal_browser_exit":  true,
+    "actual_remote_origin_ipc_denied":  true,
+    "real_authentication_tested":  false
+}

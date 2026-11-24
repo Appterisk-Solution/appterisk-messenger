@@ -1,0 +1,1 @@
+Public updater signature fixture. No executable or credentials.

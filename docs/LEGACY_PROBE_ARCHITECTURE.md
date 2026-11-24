@@ -1,0 +1,13 @@
+# Compatibility prototype architecture
+
+The 0.1.1 Windows adapter now verifies the native engine's effective profile path/InPrivate flag, subscribes to native browser failure/exit events, and retains environment objects on the UI thread until graceful browser exit. Window/app exit waits for account controllers and browser processes instead of relying on parent-window destruction. The probe reuses existing views for the same mode. `health.rs` writes metadata-only local diagnostic logs; origin diagnostics count storage containers and generic errors without reading authentication data. Details and unresolved real-login acceptance are in SESSION_PERSISTENCE.md.
+
+Trusted bundled Vue shell → four validated async Rust probe commands → three native child WebViews in one window. Every command validates the invoking WebView label and URL. Only `main` receives core capabilities. The isolation fixture uses child labels and deliberately receives none. No remote capability entries are granted. Production shell CSP disallows frames, external scripts and network access other than IPC.
+
+One async mutex serializes lifecycle operations; no standard mutex is held across await. Fixed opaque UUIDs map to separate canonicalized directories under `app_local_data_dir()/compatibility-profiles`. No profile paths come from JavaScript. No deletion operation exists in the probe. Profiles persist until the user removes them through the OS after quitting. The upcoming SQLite repository must store only account metadata/settings, never browser credentials or messages.
+
+Bounds come from DOM logical pixels; ResizeObserver and window resize events update child rectangles. The guide opens only after all native children hide successfully. Errors remain in the shell; arbitrary backend or provider URLs are not logged.
+
+Remote main-frame navigation is confined to the exact HTTPS WhatsApp Web origin. Popups are denied. Subresources remain provider-managed; no interception or injected chat customization exists. External-link browser opening, downloads and origin-scoped permission prompting are deferred. All permission requests/downloads are denied by the probe. Provider rejection or missing functionality must be recorded, not hidden.
+
+The probe intentionally differs from MVP: exactly three profiles, no account database, no account CRUD, no last selection, no themes/settings, no lazy keepalive switcher and no profile deletion. Follow IMPLEMENTATION_PLAN.md after the compatibility gate passes. Tailwind, shadcn-vue, Pinia and Lucide belong to that later Phase 1 shell; this diagnostic page uses Vue/strict TypeScript and plain CSS.

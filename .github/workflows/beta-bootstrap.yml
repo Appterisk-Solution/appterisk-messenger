@@ -1,0 +1,28 @@
+name: Owner-signed experimental beta bootstrap
+on:
+  push:
+    branches: [release-beta-0.5.0]
+permissions: {contents: read}
+concurrency:
+  group: beta-bootstrap
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  publish-experimental-beta:
+    needs: checks
+    runs-on: windows-latest
+    permissions: {contents: write}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 24, cache: npm}
+      - run: npm ci
+      - name: Verify already-signed owner artifacts without access to the private key
+        run: node scripts/validate-package.mjs owner-signed
+      - name: Upload experimental draft
+        env: {GITHUB_TOKEN: '${{ github.token }}'}
+        run: node scripts/publish-release.mjs draft owner-signed beta
+      - name: Publish explicitly experimental prerelease and Beta feed last
+        env: {GITHUB_TOKEN: '${{ github.token }}'}
+        run: node scripts/publish-release.mjs publish owner-signed beta

@@ -1,0 +1,13 @@
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+const tool=process.argv[2];
+const binary={native:'appterisk-native-control.exe',tauri:'appterisk-minimal-tauri-control.exe'}[tool];
+if (!binary || process.platform!=='win32') throw new Error('Choose native or tauri on Windows.');
+const path=join(import.meta.dirname,'..','diagnostics','target','release',binary);
+if (!existsSync(path)) throw new Error('Build the controls first: npm run build:controls');
+const args=process.argv.slice(3);
+if (args.some(arg=>arg!=='--smoke')) throw new Error('Only --smoke is supported; baseline profile locations are fixed.');
+const child=spawn(path,args,{stdio:'inherit'});
+child.on('error',error=>{console.error(error.message);process.exitCode=1;});
+child.on('exit',code=>{process.exitCode=code??1;});

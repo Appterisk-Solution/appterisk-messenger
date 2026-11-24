@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-restart-mode"
+description = "Enables the restart_mode command without any pre-configured scope."
+commands.allow = ["restart_mode"]
+
+[[permission]]
+identifier = "deny-restart-mode"
+description = "Denies the restart_mode command without any pre-configured scope."
+commands.deny = ["restart_mode"]

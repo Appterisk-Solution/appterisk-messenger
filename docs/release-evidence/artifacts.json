@@ -1,0 +1,23 @@
+﻿{
+    "version":  "0.2.0",
+    "platform":  "Windows x64",
+    "production_build_passed":  true,
+    "unsigned":  true,
+    "artifacts":  [
+                      {
+                          "path":  "src-tauri/target/release/appterisk-messenger.exe",
+                          "bytes":  6385152,
+                          "sha256":  "28E1A268251CDB8888A36B2C797FAC86740A5C6796E554664510352BF180D378"
+                      },
+                      {
+                          "path":  "src-tauri/target/release/bundle/nsis/Appterisk Messenger_0.2.0_x64-setup.exe",
+                          "bytes":  2266949,
+                          "sha256":  "B1BB4B95075552861910B116704CF3C33FC53C9D37F59E09141F65A805FE0D9C"
+                      },
+                      {
+                          "path":  "src-tauri/target/release/bundle/msi/Appterisk Messenger_0.2.0_x64_en-US.msi",
+                          "bytes":  3170304,
+                          "sha256":  "47012C4AB60A452AB85679B6234463D2BA333E219E1B74BFE1715A55317E930E"
+                      }
+                  ]
+}

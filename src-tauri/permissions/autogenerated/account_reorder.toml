@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-account-reorder"
+description = "Enables the account_reorder command without any pre-configured scope."
+commands.allow = ["account_reorder"]
+
+[[permission]]
+identifier = "deny-account-reorder"
+description = "Denies the account_reorder command without any pre-configured scope."
+commands.deny = ["account_reorder"]
