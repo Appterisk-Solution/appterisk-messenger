@@ -8,7 +8,18 @@ concurrency:
   cancel-in-progress: false
 jobs:
   checks:
-    uses: ./.github/workflows/ci.yml
+    # The owner-signed artifact already passed local Windows/native regression checks.
+    # Repeat frontend and crypto checks here; the independent Windows CI also runs on main.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 24, cache: npm}
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run cargo -- test --manifest-path release-tools/Cargo.toml
   publish-experimental-beta:
     needs: checks
     runs-on: windows-latest
