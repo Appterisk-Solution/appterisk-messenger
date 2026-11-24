@@ -12,6 +12,14 @@ async function refresh(){data.value=await command<Snapshot>('update_snapshot');i
 async function action(name:string,args:Record<string,unknown>={}){working.value=true;localError.value=false;try{await command(name,args);}catch{localError.value=true;}finally{await refresh();working.value=false;}}
 onMounted(async()=>{await refresh();if(isTauri()){const off=await listen<Snapshot>('update-state',event=>{data.value=event.payload;});if(disposed)off();else stop=off;}});
 onUnmounted(()=>{disposed=true;stop?.();});
+function errorMessage(){const error=data.value?.error??'';
+ if(error.startsWith('Browser shutdown'))return t('Browser shutdown failed. No update was installed. Close other instances and retry.');
+ if(error.startsWith('Finish active'))return t('Finish active downloads and permission prompts before installing.');
+ if(error.startsWith('Installer'))return t('The installer could not start. Check disk space and installation permissions, then retry.');
+ if(error.includes('signature')||error.includes('manifest'))return t('The update signature or manifest is invalid. Nothing was installed.');
+ if(error.includes('cancelled'))return t('Download was cancelled or too large. Nothing was installed.');
+ return t('The update could not finish. Check your connection or signing configuration and retry. Your messaging data is unchanged.');
+}
 function status(value:string){return t(({idle:'Ready to check',checking:'Checking for updates',current:'You are up to date',available:'Update available',downloading:'Downloading update',ready:'Update verified and ready',installing:'Closing browsers and installing',error:'Update operation failed'} as Record<string,string>)[value]??'Update operation failed');}
 </script>
 <template>
@@ -28,7 +36,7 @@ function status(value:string){return t(({idle:'Ready to check',checking:'Checkin
     <p v-if="data" role="status">{{status(data.status)}}</p>
     <progress v-if="data?.status==='downloading'" :value="data.total?data.received:undefined" :max="data.total??1"/>
     <p v-if="data?.status==='downloading'">{{Math.round(data.received/1024)}} KB <span v-if="data.total">/ {{Math.round(data.total/1024)}} KB</span></p>
-    <p v-if="data?.error||localError" class="dialog-error" role="alert">{{t('The update could not finish. Check your connection or signing configuration and retry. Your messaging data is unchanged.')}}</p>
+    <p v-if="data?.error||localError" class="dialog-error" role="alert">{{errorMessage()}}</p>
     <div class="security-actions"><button v-if="data?.status==='error'" class="text-button" :disabled="working" @click="action('update_check')">{{t('Retry')}}</button><button class="secondary-button" :disabled="working||!data?.configured||['checking','downloading','installing'].includes(data?.status??'')" @click="action('update_check')">{{t('Check for Updates')}}</button>
       <button v-if="data?.version&&['available','error'].includes(data.status)" class="primary-button" :disabled="working||!data.install_supported" @click="action('update_download')">{{t('Download Update')}}</button>
       <button v-if="data?.status==='downloading'" class="text-button" @click="command('update_cancel')">{{t('Cancel Download')}}</button>
