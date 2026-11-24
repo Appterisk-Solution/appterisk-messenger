@@ -1,1 +1,2 @@
 tests/updater-fixtures/payload.txt -text
+*.sig -text
