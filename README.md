@@ -1,18 +1,22 @@
-# Appterisk Messenger 0.3.0
+# Appterisk Messenger 0.4.0 - Telegram validation stage
 
-A Windows account manager displaying official WhatsApp Web through independent native WebView2 profiles. Rust, Tauri 2, Vue 3, TypeScript, Tailwind CSS, Pinia and SQLite; no Electron, CEF, unofficial WhatsApp API or external backend.
+A Windows account manager displaying official WhatsApp Web and experimental Telegram WebK through independent native WebView2 profiles. Rust, Tauri 2, Vue 3, TypeScript, Tailwind CSS, Pinia and SQLite; no Electron, CEF, unofficial WhatsApp API or external backend.
 
-The verified 0.2.0 baseline is preserved at Git commit `d401ca5`, annotated tag `v0.2.0-stable`. Version 0.3.0 preserves the ordinary Windows profile-path fix, account UUIDs, profile adoption, ordering and graceful shutdown. Real three-account authentication passed on 0.2.0; 0.3.0 manual results are tracked separately in [release verification](docs/RELEASE_0.3.0.md).
+The user-verified v0.3.0 baseline is tagged `v0.3.0-stable`. All v0.3.0 manual acceptance results, including three accounts through three full restarts, are user-confirmed. Development continues on `feature/multi-platform`.
+
+This is the first incremental v0.4.0 validation stage, not the completed multi-service release. Add account offers WhatsApp and **experimental Telegram**. Other proposed services are visibly unavailable until Telegram acceptance validates the shared architecture. Telegram uses the official [WebK client](https://telegram.org/apps), normal provider authentication, a new empty UUID profile and default browser identity. No provider compatibility is inferred from synthetic tests. See [platform compatibility](docs/PLATFORM_COMPATIBILITY.md) and [current verification](docs/RELEASE_0.4.0.md).
+
+Schema v3 preserves account IDs, original profile keys, settings, ordering and permission decisions. Browser profiles are never moved or copied. **Schema downgrade to v0.3.0 is refused after first v0.4.0 launch.** Keep the stable source checkpoint for reference, not as an executable downgrade against migrated metadata.
 
 ## Install and accounts
 
 The installed executable is `%LOCALAPPDATA%\Appterisk Messenger\appterisk-messenger.exe`. Release artifacts:
 
 - `src-tauri/target/release/appterisk-messenger.exe`
-- `src-tauri/target/release/bundle/nsis/Appterisk Messenger_0.3.0_x64-setup.exe`
-- `src-tauri/target/release/bundle/msi/Appterisk Messenger_0.3.0_x64_en-US.msi`
+- `src-tauri/target/release/bundle/nsis/Appterisk Messenger_0.4.0_x64-setup.exe`
+- `src-tauri/target/release/bundle/msi/Appterisk Messenger_0.4.0_x64_en-US.msi`
 
-Installers are unsigned. The NSIS upgrade from 0.2.0 passed with all 2,995 existing profile files unchanged in count, size and modification time during installation. The installed payload matches the final NSIS package. This is filesystem preservation evidence, not a claim that manual authentication or notification tests passed. MSI upgrade, signing, automatic updates and other operating systems are not claimed verified.
+Installers are unsigned. The staged 0.3.0 to 0.4.0 NSIS upgrade passed with 3,303 existing profile files unchanged during installation; metadata comparison also passed after migration. Real post-upgrade login acceptance remains pending. See [0.4.0 verification](docs/RELEASE_0.4.0.md). The NSIS upgrade from 0.2.0 passed with all 2,995 existing profile files unchanged in count, size and modification time during installation. The installed payload matches the final NSIS package. This is filesystem preservation evidence, not a claim that manual authentication or notification tests passed. MSI upgrade, signing, automatic updates and other operating systems are not claimed verified.
 
 Add and name accounts, or explicitly adopt an existing compatibility profile in place. Adoption never copies or migrates browser authentication databases. Click sidebar icons to switch; right-click or use Account options to rename, customize, reload, reorder or remove. Drag icons or use Settings → Accounts up/down controls to reorder. Removal requires confirmation and retains browser data; unlink through WhatsApp Linked devices on the phone if desired. Original compatibility profiles can be adopted again. Account count has no artificial software limit.
 
@@ -26,7 +30,7 @@ Only genuine WebView2 `NotificationReceived` events produce native Windows notif
 
 When previews are enabled, text from actual provider notifications is passed to Windows in memory; Windows may retain notification content in its own notification history. Appterisk does not write message content to SQLite or logs. Existing host toasts are cleared when locking, disabling notifications, entering DND, changing privacy mode or quitting.
 
-Unread numbers use narrowly recognized WhatsApp document-title signals and can represent unread chats rather than messages. Unrecognized titles do not invent a count or clear a known indicator. A real notification can set a generic dot. The tray shows a red activity dot and aggregate tooltip; `+` indicates additional unread activity without an exact count. Provider changes can invalidate these signals. Real incoming-message and read-state acceptance must be confirmed separately.
+Telegram currently uses a generic activity dot from genuine native notifications; numeric title parsing is not claimed. WhatsApp unread numbers use narrowly recognized WhatsApp document-title signals and can represent unread chats rather than messages. Unrecognized titles do not invent a count or clear a known indicator. A real notification can set a generic dot. The tray shows a red activity dot and aggregate tooltip; `+` indicates additional unread activity without an exact count. Provider changes can invalidate these signals. Real incoming-message and read-state acceptance must be confirmed separately.
 
 ## Background and tray
 

@@ -67,6 +67,17 @@ pub fn clicked(app: &tauri::AppHandle, account: &str, ticket: &str) {
     });
 }
 pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), String> {
+    let platform = {
+        let state = app.state::<DesktopState>();
+        let d = state
+            .0
+            .lock()
+            .map_err(|_| "Notification state unavailable")?;
+        d.accounts
+            .get(id)
+            .and_then(|a| crate::platforms::get(&a.platform))
+            .ok_or("Unknown platform")?
+    };
     let app = app.clone();
     let id = id.to_string();
     let (tx, rx) = std::sync::mpsc::channel();
@@ -86,7 +97,7 @@ pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), St
                         };
                         args.SetHandled(true)?;
                         let origin = string_property(|s| args.SenderOrigin(s))?;
-                        if !tauri::Url::parse(&origin).map(|url|crate::accounts::provider_url(&url)).unwrap_or(false) {
+                        if !tauri::Url::parse(&origin).map(|url|platform.navigation(&url)).unwrap_or(false) {
                             return Ok(());
                         }
                         let notification = args.Notification()?;
@@ -129,7 +140,7 @@ pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), St
                             )
                         };
                         let xml = desktop_policy::notification_xml(
-                            &account.name,
+                            &format!("{} - {}", account.name, platform.name),
                             &title,
                             &body,
                             &id,

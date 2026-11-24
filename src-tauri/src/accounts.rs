@@ -138,12 +138,9 @@ fn production(app: &tauri::AppHandle) -> Result<()> {
 pub fn label(id: &str) -> String {
     format!("account-{id}")
 }
-pub fn provider_url(url: &tauri::Url) -> bool {
-    url.scheme() == "https"
-        && url.host_str() == Some("web.whatsapp.com")
-        && url.port_or_known_default() == Some(443)
-        && url.username().is_empty()
-        && url.password().is_none()
+#[cfg(test)]
+fn provider_url(url: &tauri::Url) -> bool {
+    crate::platforms::get("whatsapp").unwrap().navigation(url)
 }
 pub fn external_url(url: &tauri::Url) -> bool {
     matches!(url.scheme(), "http" | "https")
@@ -167,6 +164,7 @@ pub struct Snapshot {
     diagnostic: bool,
     runtime_version: Option<String>,
     synthetic: bool,
+    platforms: &'static [crate::platforms::Platform],
 }
 fn snapshot(app: &tauri::AppHandle, r: &Runtime) -> Result<Snapshot> {
     crate::desktop::sync(app, r)?;
@@ -189,6 +187,7 @@ fn snapshot(app: &tauri::AppHandle, r: &Runtime) -> Result<Snapshot> {
         diagnostic: diagnostic_mode(),
         runtime_version: runtime_version(),
         synthetic: synthetic_mode(),
+        platforms: crate::platforms::REGISTRY,
     })
 }
 #[tauri::command]
@@ -217,6 +216,7 @@ pub async fn account_add(
     state: tauri::State<'_, AccountState>,
     name: String,
     legacy_id: Option<String>,
+    platform: Option<String>,
 ) -> Result<Snapshot> {
     authorize(&caller)?;
     production(&app)?;
@@ -238,7 +238,12 @@ pub async fn account_add(
             return Err("Profile escaped its managed directory.".into());
         }
     }
-    r.db.add(&name, legacy_id.as_deref())?;
+    let platform = platform.as_deref().unwrap_or("whatsapp");
+    if platform == "whatsapp" {
+        r.db.add(&name, legacy_id.as_deref())?;
+    } else {
+        r.db.add_platform(&name, legacy_id.as_deref(), platform)?;
+    }
     snapshot(&app, &r)
 }
 #[tauri::command]
@@ -334,7 +339,9 @@ pub async fn initialize(
     if !cfg!(windows) {
         return Err("This release requires Windows with WebView2 Evergreen.".into());
     }
+    crate::desktop::sync(app, r)?;
     let account = r.db.account(id)?;
+    let platform = crate::platforms::available(&account.platform)?;
     let name = label(id);
     if app.get_webview(&name).is_none() {
         #[cfg(windows)]
@@ -374,12 +381,12 @@ pub async fn initialize(
         let title_app = app.clone();
         let title_id = id.to_string();
         let external_app = app.clone();
-        let builder=WebviewBuilder::new(&name,WebviewUrl::External("https://web.whatsapp.com/".parse().map_err(|_|"Invalid provider URL.")?))
+        let builder=WebviewBuilder::new(&name,WebviewUrl::External(platform.entry_url.parse().map_err(|_|"Invalid provider URL.")?))
             .data_directory(browser_path.clone()).incognito(false).devtools(false).disable_drag_drop_handler()
-            .on_navigation(provider_url)
+            .on_navigation(move |url| platform.navigation(url))
             .on_new_window(move|url,_|{if external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
             .on_document_title_changed(move|_,title|crate::desktop::title(&title_app,&title_id,&title))
-            .on_page_load(move|_,payload|{if provider_url(payload.url()){let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));}});
+            .on_page_load(move|_,payload|{if platform.navigation(payload.url()){let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));}});
         let window = app.get_window("main").ok_or("Main window unavailable.")?;
         // Create offscreen so a new native child can never cover an open shell dialog.
         let view = window
@@ -474,7 +481,11 @@ pub async fn accounts_initialize(
     authorize(&caller)?;
     production(&app)?;
     let mut r = state.0.lock().await;
-    for account in r.db.accounts()? {
+    for account in
+        r.db.accounts()?
+            .into_iter()
+            .filter(|a| a.platform == "whatsapp")
+    {
         initialize(&app, &mut r, &account.id, bounds).await?;
     }
     layout(&app, &r, Some(bounds))

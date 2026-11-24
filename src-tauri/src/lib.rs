@@ -10,6 +10,7 @@ mod diagnostics;
 mod health;
 #[cfg(all(debug_assertions, target_os = "windows"))]
 mod manager_diagnostics;
+mod platforms;
 mod probe;
 mod profile_paths;
 mod tray;

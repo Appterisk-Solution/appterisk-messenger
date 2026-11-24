@@ -1,0 +1,9 @@
+{
+  "schema": 3,
+  "account_count": 3,
+  "accounts_sha256": "8e62473156315263b655904b75992d21d4b496e7482b3fbe54786d71e889d24f",
+  "settings_sha256": "f76a8a41b18dacfe5e89e3cd87d58ed79308ae208911c4439b89b2310b064e95",
+  "permissions_sha256": "ca3660f2d1d05809d1b8fb5b245c03d640484091d761216039b272c5dc50c13c",
+  "browser_databases_read": false,
+  "preserved": true
+}

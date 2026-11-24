@@ -1,7 +1,6 @@
 //! Origin-scoped host prompts. Default deny for unknown origins/kinds, never implicit allow.
 use crate::{
     desktop::{self, DesktopState, Prompt},
-    desktop_policy,
     windows_profiles::string_property,
 };
 use std::{cell::RefCell, collections::HashMap};
@@ -69,16 +68,26 @@ pub fn apply(app: &tauri::AppHandle, id: &str, kind_name: &str, reload_page: boo
     let Some(kind) = native_kind(kind_name) else {
         return;
     };
-    let decision = {
+    let (decision, origin) = {
         let s = app.state::<DesktopState>();
         let Ok(d) = s.0.lock() else {
             return;
         };
-        d.permissions
-            .iter()
-            .find(|p| p.account_id == id && p.kind == kind_name)
-            .map(|p| p.decision.clone())
-            .unwrap_or_else(|| "ask".into())
+        let Some(platform) = d
+            .accounts
+            .get(id)
+            .and_then(|a| crate::platforms::get(&a.platform))
+        else {
+            return;
+        };
+        (
+            d.permissions
+                .iter()
+                .find(|p| p.account_id == id && p.kind == kind_name && p.origin == platform.origin)
+                .map(|p| p.decision.clone())
+                .unwrap_or_else(|| "ask".into()),
+            platform.origin,
+        )
     };
     let permission_state = match decision.as_str() {
         "allow" => COREWEBVIEW2_PERMISSION_STATE_ALLOW,
@@ -95,7 +104,7 @@ pub fn apply(app: &tauri::AppHandle, id: &str, kind_name: &str, reload_page: boo
             {
                 let _ = p.SetPermissionState(
                     kind,
-                    &HSTRING::from(desktop_policy::ORIGIN),
+                    &HSTRING::from(origin),
                     permission_state,
                     &SetPermissionStateCompletedHandler::create(Box::new(move |status| {
                         if status.is_ok() && reload_page {
@@ -109,6 +118,14 @@ pub fn apply(app: &tauri::AppHandle, id: &str, kind_name: &str, reload_page: boo
     }
 }
 pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), String> {
+    let platform = {
+        let state = app.state::<DesktopState>();
+        let d = state.0.lock().map_err(|_| "Permission state unavailable")?;
+        d.accounts
+            .get(id)
+            .and_then(|a| crate::platforms::get(&a.platform))
+            .ok_or("Unknown platform")?
+    };
     let app = app.clone();
     let id = id.to_owned();
     let (tx, rx) = std::sync::mpsc::channel();
@@ -131,12 +148,12 @@ pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), St
                         let uri = string_property(|s| args.Uri(s))?;
                         let origin = tauri::Url::parse(&uri)
                             .ok()
-                            .filter(crate::accounts::provider_url)
+                            .filter(|u| platform.navigation(u))
                             .map(|u| u.origin().ascii_serialization());
                         let mut permission = COREWEBVIEW2_PERMISSION_KIND_UNKNOWN_PERMISSION;
                         args.PermissionKind(&mut permission)?;
-                        let Some(kind) = kind(permission)
-                            .filter(|_| origin.as_deref() == Some(desktop_policy::ORIGIN))
+                        let Some(kind) =
+                            kind(permission).filter(|_| origin.as_deref() == Some(platform.origin))
                         else {
                             args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)?;
                             return Ok(());
@@ -156,7 +173,7 @@ pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), St
                                     .find(|p| {
                                         p.account_id == id
                                             && p.kind == kind
-                                            && p.origin == desktop_policy::ORIGIN
+                                            && p.origin == platform.origin
                                     })
                                     .map(|p| p.decision.clone())
                                     .unwrap_or_else(|| "ask".into())
@@ -190,7 +207,7 @@ pub fn attach(app: &tauri::AppHandle, view: &Webview, id: &str) -> Result<(), St
                                         id: ticket.clone(),
                                         account_id: id.clone(),
                                         kind: kind.into(),
-                                        origin: desktop_policy::ORIGIN.into(),
+                                        origin: platform.origin.into(),
                                     },
                                 );
                             }

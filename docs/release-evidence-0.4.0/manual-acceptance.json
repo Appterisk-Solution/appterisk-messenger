@@ -1,0 +1,15 @@
+{
+  "version": "0.4.0",
+  "stage": "Telegram validation",
+  "v0.3.0_baseline": "passed_user_confirmed",
+  "whatsapp_after_upgrade_three_accounts_three_restarts": "pending_user_confirmation",
+  "telegram_login_three_restarts": "pending_user_confirmation",
+  "telegram_multiple_account_isolation": "pending_user_confirmation",
+  "telegram_switching_incoming_background_messages": "pending_user_confirmation",
+  "telegram_notifications_clicks_activity": "pending_user_confirmation",
+  "telegram_media": "pending_user_confirmation",
+  "subsequent_providers": "not_implemented_pending_shared_architecture_validation",
+  "signed": false,
+  "msi_upgrade": "not_tested",
+  "macos_linux": "not_verified"
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 - staged Telegram validation
+
+- Recorded user acceptance of v0.3.0 and created `v0.3.0-stable`.
+- Added a shared native platform registry, origin-scoped navigation/permissions/notifications and an experimental Telegram WebK account option. Other providers remain unavailable pending validation.
+- Transactional schema v3 preserves all WhatsApp metadata and browser profile identifiers; reserves future custom URL, color, grouping and enabled metadata.
+- Added cross-origin manager fixtures and migration/registry/platform-selection tests. Full multi-platform release acceptance remains pending.
+
 ## 0.3.0 — 2026-11-24
 
 - Preserved the verified 0.2.0 source at `d401ca5`, tag `v0.2.0-stable`, before implementation.

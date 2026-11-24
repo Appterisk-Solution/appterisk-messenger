@@ -22,12 +22,15 @@ fn visible(view: &Webview) -> Result<bool> {
     rx.recv_timeout(Duration::from_secs(5))
         .map_err(|_| "Visibility check timed out")?
 }
-fn ready(view: &Webview) -> Result<()> {
+fn ready(view: &Webview, origin: &str) -> Result<()> {
     let start = Instant::now();
     while start.elapsed() < Duration::from_secs(45) {
         if evaluate(
             view,
-            "location.origin === 'https://web.whatsapp.com' && document.readyState === 'complete'",
+            &format!(
+                "location.origin === {} && document.readyState === 'complete'",
+                serde_json::to_string(origin).unwrap()
+            ),
         )
         .unwrap_or(Value::Null)
             == true
@@ -38,7 +41,7 @@ fn ready(view: &Webview) -> Result<()> {
     }
     Err("Official remote origin did not finish loading; network test is inconclusive.".into())
 }
-fn remote_denial(view: &Webview) -> Result<Value> {
+fn remote_denial(view: &Webview, origin: &str) -> Result<Value> {
     evaluate(
         view,
         r#"window.__appteriskIpcDiagnostic=null;void(async()=>{const out={origin:location.origin};for(const command of ['account_snapshot','account_add','restart_mode','reload_probe','desktop_snapshot','desktop_save','desktop_unlock','desktop_password','desktop_permission','desktop_permission_reply']){if(!window.__TAURI_INTERNALS__?.invoke){out[command]='no-bridge';continue;}try{await window.__TAURI_INTERNALS__.invoke(command,{});out[command]='ACCEPTED';}catch(e){out[command]=/forbidden|not allowed|denied/i.test(String(e))?'denied':'unexpected-error';}}window.__appteriskIpcDiagnostic=out;})();true"#,
@@ -46,7 +49,7 @@ fn remote_denial(view: &Webview) -> Result<Value> {
     for _ in 0..100 {
         let result = evaluate(view, "window.__appteriskIpcDiagnostic ?? null")?;
         if !result.is_null() {
-            if result["origin"] != "https://web.whatsapp.com"
+            if result["origin"] != origin
                 || [
                     "account_snapshot",
                     "account_add",
@@ -120,6 +123,7 @@ async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
         r.db.add("Adopted fixture", Some(database::LEGACY_IDS[0]))?;
         r.db.add("Second fixture", None)?;
         r.db.add("Third fixture", None)?;
+        r.db.add_platform("Telegram fixture", None, "telegram")?;
         let ids: Vec<_> =
             r.db.accounts()?
                 .iter()
@@ -160,12 +164,13 @@ async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
         let view = app
             .get_webview(&accounts::label(&account.id))
             .ok_or("Missing initialized view")?;
-        ready(&view)?;
+        let platform = crate::platforms::available(&account.platform)?;
+        ready(&view, platform.origin)?;
         evaluate(
             &view,
             "window.__appteriskManagerFixture = 'synthetic-no-reload-marker';true",
         )?;
-        remote_results.push(remote_denial(&view)?);
+        remote_results.push(remote_denial(&view, platform.origin)?);
     }
     for account in &accounts {
         accounts::switch(app, &mut r, &account.id, resized).await?;
@@ -249,7 +254,7 @@ async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
         let removed = &accounts[0];
         let path = database::profile_path(&r.root, removed)?;
         accounts::remove_account(app, &mut r, &removed.id, true)?;
-        if !path.is_dir() || r.db.accounts()?.len() != 2 {
+        if !path.is_dir() || r.db.accounts()?.len() != accounts.len() - 1 {
             return Err("Removal changed profile storage or sibling metadata".into());
         }
         for a in accounts.iter().skip(1) {

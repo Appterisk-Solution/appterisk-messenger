@@ -15,6 +15,25 @@ let desktop:DesktopSnapshot,accounts:Snapshot;
 beforeEach(()=>{setActivePinia(createPinia());locale.value='en';desktop=desktopSnapshot();accounts=accountSnapshot();invoke.mockReset();invoke.mockImplementation(async(name)=>name==='desktop_snapshot'?structuredClone(desktop):name==='account_snapshot'?structuredClone(accounts):undefined);vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockReturnValue({x:88,y:76,width:900,height:650} as DOMRect);});
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();setLanguage('en');});
 describe('desktop preferences and security shell',()=>{
+  it('offers Telegram as experimental while unavailable services cannot be selected',async()=>{
+    accounts.platforms=[{id:'whatsapp',name:'WhatsApp',symbol:'WA',entry_url:'https://web.whatsapp.com/',origin:'https://web.whatsapp.com',available:true,status:'verified',limitations:''},{id:'telegram',name:'Telegram',symbol:'TG',entry_url:'https://web.telegram.org/',origin:'https://web.telegram.org',available:true,status:'experimental',limitations:'User acceptance pending'},{id:'gmail',name:'Gmail',symbol:'GM',entry_url:'https://mail.google.com/',origin:'https://mail.google.com',available:false,status:'unavailable',limitations:'Authentication review pending'}];
+    const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();
+    await wrapper.get('.add-account').trigger('click');await flushPromises();
+    const options=wrapper.findAll('.platform-option');
+    expect(options.find(b=>b.text().includes('Gmail'))!.attributes('disabled')).toBeDefined();
+    await options.find(b=>b.text().includes('Telegram'))!.trigger('click');
+    expect(wrapper.get('[role="dialog"]').text()).toContain('Experimental: authentication, persistence and notifications need user verification.');
+    expect(wrapper.find('#profile').exists()).toBe(false);
+    expect(wrapper.get('.account-customization').text()).toContain('Account color');
+    await wrapper.get('.account-customization .checkbox-label input').setValue(true);
+    const added={...accounts.accounts[0]!,id:'new-empty-telegram',name:'Telegram work',platform:'telegram',profile_key:'account:new-empty-telegram'};
+    invoke.mockImplementation(async(name)=>name==='account_add'||name==='account_update'?{...structuredClone(accounts),accounts:[...accounts.accounts,added]}:undefined);
+    await wrapper.get('#account-name').setValue('Telegram work');await wrapper.get('[role="dialog"] form').trigger('submit');await flushPromises();
+    expect(invoke).toHaveBeenCalledWith('account_add',{name:'Telegram work',legacyId:null,platform:'telegram'});
+    expect(invoke).toHaveBeenCalledWith('account_update',expect.objectContaining({id:'new-empty-telegram',notificationsEnabled:true}));
+    expect(invoke).toHaveBeenCalledWith('account_switch',expect.objectContaining({id:'new-empty-telegram'}));
+    wrapper.unmount();
+  });
   it('preserves safe defaults and saves global DND independently of per-account preferences',async()=>{const store=useDesktop();await store.refresh();expect(store.data?.config.close_to_tray).toBe(false);expect(store.data?.config.hide_previews).toBe(true);expect(store.data?.config.launch_on_startup).toBe(false);await store.preference('dnd',true);expect(invoke).toHaveBeenCalledWith('desktop_save',{config:expect.objectContaining({dnd:true,hide_previews:true,notifications:true})});});
   it('initializes background profiles once and switches next/previous without reload',async()=>{const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();expect(invoke.mock.calls.filter(c=>c[0]==='accounts_initialize')).toHaveLength(1);document.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',ctrlKey:true}));await flushPromises();expect(invoke).toHaveBeenCalledWith('account_switch',expect.objectContaining({id:'c'}));document.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',ctrlKey:true,shiftKey:true}));await flushPromises();expect(invoke).toHaveBeenLastCalledWith('account_switch',expect.objectContaining({id:'b'}));expect(invoke.mock.calls.some(c=>c[0]==='account_reload')).toBe(false);wrapper.unmount();});
   it('hides the workspace while locked and does not process account shortcuts',async()=>{desktop.locked=true;desktop.lock_enabled=true;const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();expect(wrapper.get('.lock-screen').text()).toContain('Application locked');expect(wrapper.get('.workspace').attributes('style')).toContain('display: none');expect(invoke.mock.calls.some(c=>c[0]==='accounts_initialize'||c[0]==='account_switch')).toBe(false);document.dispatchEvent(new KeyboardEvent('keydown',{key:'1',ctrlKey:true}));await flushPromises();expect(invoke.mock.calls.some(c=>c[0]==='account_switch')).toBe(false);wrapper.unmount();});

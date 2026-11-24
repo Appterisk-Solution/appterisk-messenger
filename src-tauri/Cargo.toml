@@ -1,6 +1,6 @@
 [package]
 name = "appterisk-messenger"
-version = "0.3.0"
+version = "0.4.0"
 description = "Appterisk Messenger production account manager"
 authors = ["you"]
 edition = "2024"

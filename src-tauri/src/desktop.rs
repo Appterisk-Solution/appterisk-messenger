@@ -206,7 +206,14 @@ pub fn sync(app: &tauri::AppHandle, r: &Runtime) -> Result<()> {
     Ok(())
 }
 pub fn title(app: &tauri::AppHandle, id: &str, title: &str) {
-    if let Some(unread) = desktop_policy::unread_from_title(title) {
+    let platform = app.try_state::<DesktopState>().and_then(|s| {
+        s.0.lock().ok().and_then(|d| {
+            d.accounts
+                .get(id)
+                .and_then(|a| crate::platforms::get(&a.platform))
+        })
+    });
+    if let Some(unread) = platform.and_then(|p| p.unread(title)) {
         if let Some(state) = app.try_state::<DesktopState>()
             && let Ok(mut d) = state.0.lock()
         {

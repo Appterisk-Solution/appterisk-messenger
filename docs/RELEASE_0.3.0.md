@@ -42,22 +42,22 @@ Installers are unsigned. MSI upgrade, signing, automatic updates and cross-platf
 
 ## Manual acceptance
 
-At the time of this record, these are **pending user confirmation** on installed 0.3.0:
+Initially pending; subsequently **passed by user confirmation** as described below:
 
 | Test | Status |
 | --- | --- |
-| Real incoming message while account is active | Pending |
-| Real incoming message while account is hidden | Pending |
-| Real incoming message while app is minimized | Pending |
-| Real incoming message while app is in the system tray | Pending |
-| Notification shows correct account name | Pending |
-| Notification click selects originating account | Pending |
-| Unread indicators update on arrival and reading | Pending |
-| Image/document/video/audio uploads and downloads, cancellation | Pending |
-| Microphone and voice messages | Pending |
-| Manual app lock hides native views and unlock restores account | Pending user check; native fixture passed |
-| Three distinct accounts remain authenticated through three full restarts | Pending on 0.3.0; 0.2.0 baseline passed |
-| Real accounts/authentication survive the 0.2.0 upgrade | Pending; installer filesystem preservation passed |
+| Real incoming message while account is active | Passed by user confirmation |
+| Real incoming message while account is hidden | Passed by user confirmation |
+| Real incoming message while app is minimized | Passed by user confirmation |
+| Real incoming message while app is in the system tray | Passed by user confirmation |
+| Notification shows correct account name | Passed by user confirmation |
+| Notification click selects originating account | Passed by user confirmation |
+| Unread indicators update on arrival and reading | Passed by user confirmation |
+| Image/document/video/audio uploads and downloads, cancellation | Passed by user confirmation |
+| Microphone and voice messages | Passed by user confirmation |
+| Manual app lock hides native views and unlock restores account | Passed by user confirmation; native fixture passed |
+| Three distinct accounts remain authenticated through three full restarts | Passed by user confirmation on 0.3.0 |
+| Real accounts/authentication survive the 0.2.0 upgrade | Passed by user confirmation; installer filesystem preservation passed |
 
 Enable each account's notification preference and explicitly allow notification permission for that account/origin. WhatsApp's own notification preferences and Windows/Focus Assist must permit delivery. Test actual messages from a phone, not generated developer events. Use tray Quit for full-restart tests if close-to-tray is enabled. Configure any lock password privately; do not share passwords, QR codes, messages or private attachments with development tools.
 
@@ -74,4 +74,4 @@ Native API choices were checked against primary sources: [WebView2 notification 
 
 ## User acceptance confirmation
 
-The v0.4.0 request reports 18 of 19 manual acceptance tests passed, including notifications, attachments, voice, lock, shortcuts, languages and startup. The subsequent user reply ?test ok? confirms the remaining three-account, three-full-restart authentication test on v0.3.0. These are user-confirmed results, separate from automated evidence.
+The v0.4.0 request reports 18 of 19 manual acceptance tests passed, including notifications, attachments, voice, lock, shortcuts, languages and startup. The subsequent user reply "test ok" confirms the remaining three-account, three-full-restart authentication test on v0.3.0. These are user-confirmed results, separate from automated evidence.

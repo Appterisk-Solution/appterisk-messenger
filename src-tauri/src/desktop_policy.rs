@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[cfg(test)]
 pub const ORIGIN: &str = "https://web.whatsapp.com";
 pub const PERMISSIONS: [&str; 5] = [
     "microphone",
@@ -66,6 +67,7 @@ pub struct Permission {
     pub kind: String,
     pub decision: String,
 }
+#[cfg(test)]
 pub fn valid_permission(origin: &str, kind: &str, decision: &str) -> bool {
     origin == ORIGIN && PERMISSIONS.contains(&kind) && ["ask", "allow", "deny"].contains(&decision)
 }
@@ -171,7 +173,7 @@ pub fn notification_xml(
         format!("{} — {}", clean_text(account, 64), clean_text(title, 128))
     };
     let body = if private {
-        "New WhatsApp notification".into()
+        "New notification".into()
     } else {
         clean_text(body, 512)
     };

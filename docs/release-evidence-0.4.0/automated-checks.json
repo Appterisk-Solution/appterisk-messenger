@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-24",
+  "stage": "Phase A/B Telegram validation",
+  "frontend": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "tests_passed": 17
+  },
+  "rust": {
+    "format_check": "passed",
+    "clippy_all_targets_deny_warnings": "passed",
+    "tests_passed": 21
+  },
+  "native": {
+    "storage_isolation": {
+      "passed": true,
+      "run": "41b16c00-b2c0-4af6-a5d9-533afe2f868d",
+      "cold_restarts": 3,
+      "profiles": 3
+    },
+    "multi_platform_manager": {
+      "passed": true,
+      "run": "44c2ec59-4fab-4752-88e2-52918ab34873",
+      "whatsapp_profiles": 3,
+      "telegram_profiles": 1,
+      "cold_restarts": 3,
+      "remote_ipc_denied": true,
+      "normal_browser_exit": true
+    },
+    "download_fixture": {
+      "passed": true,
+      "run": "e15e0fb5-ad65-4caf-8c6c-cd7514ef3d08",
+      "collision_preserved": true
+    }
+  },
+  "real_provider_authentication": "pending_user_confirmation",
+  "note": "Synthetic fixtures use disposable unlinked profiles. Chromium shutdown warning 1412 still appears; native BrowserProcessExited acknowledgments and fixture checks passed. Telegram launcher redirect initially invalidated the no-reload marker; final official WebK entry passed. Native API code received a subsequent stricter origin match and metadata color synchronization; final Rust checks passed.",
+  "independent_controls": {
+    "format": "passed",
+    "clippy": "passed",
+    "test_harnesses": "passed",
+    "unit_test_cases": 0
+  }
+}
