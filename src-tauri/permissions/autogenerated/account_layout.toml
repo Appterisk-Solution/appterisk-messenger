@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-account-layout"
+description = "Enables the account_layout command without any pre-configured scope."
+commands.allow = ["account_layout"]
+
+[[permission]]
+identifier = "deny-account-layout"
+description = "Denies the account_layout command without any pre-configured scope."
+commands.deny = ["account_layout"]

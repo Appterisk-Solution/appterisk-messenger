@@ -1,0 +1,23 @@
+fn main() {
+    tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
+        tauri_build::AppManifest::new().commands(&[
+            "open_probe",
+            "set_probe_bounds",
+            "set_probe_visibility",
+            "reload_probe",
+            "capture_profile_metadata",
+            "resume_probe_on_startup",
+            "account_snapshot",
+            "account_add",
+            "account_update",
+            "account_reorder",
+            "account_switch",
+            "account_layout",
+            "account_reload",
+            "account_remove",
+            "settings_save",
+            "restart_mode",
+        ]),
+    ))
+    .expect("Tauri permission generation failed")
+}

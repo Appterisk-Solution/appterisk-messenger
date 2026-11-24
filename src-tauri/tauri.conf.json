@@ -1,0 +1,38 @@
+{
+    "$schema":  "https://schema.tauri.app/config/2",
+    "productName":  "Appterisk Messenger",
+    "version":  "0.2.0",
+    "identifier":  "com.appterisk.messenger",
+    "build":  {
+                  "beforeDevCommand":  "npm run dev",
+                  "devUrl":  "http://localhost:1420",
+                  "beforeBuildCommand":  "npm run build",
+                  "frontendDist":  "../dist"
+              },
+    "app":  {
+                "windows":  [
+                                {
+                                    "label":  "main",
+                                    "title":  "Appterisk Messenger",
+                                    "width":  1280,
+                                    "height":  860,
+                                    "minWidth":  760,
+                                    "minHeight":  560
+                                }
+                            ],
+                "security":  {
+                                 "csp":  "default-src \u0027self\u0027; script-src \u0027self\u0027; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; connect-src ipc: http://ipc.localhost; img-src \u0027self\u0027 data:; object-src \u0027none\u0027; base-uri \u0027none\u0027; frame-src \u0027none\u0027"
+                             }
+            },
+    "bundle":  {
+                   "active":  true,
+                   "targets":  "all",
+                   "icon":  [
+                                "icons/32x32.png",
+                                "icons/128x128.png",
+                                "icons/128x128@2x.png",
+                                "icons/icon.icns",
+                                "icons/icon.ico"
+                            ]
+               }
+}

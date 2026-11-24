@@ -1,0 +1,17 @@
+﻿{
+    "date":  "2026-11-24",
+    "installer":  "NSIS x64",
+    "baseline_version":  "0.2.0",
+    "upgraded_version":  "0.2.0",
+    "upgrade_exit_code":  0,
+    "profile_file_count":  2228,
+    "profile_file_metadata_unchanged":  true,
+    "browser_database_contents_read":  false,
+    "authentication_data_copied":  false,
+    "real_authentication_after_upgrade":  "Requires user validation",
+    "msi_upgrade_tested":  false,
+    "installed_executable_matches_expected_nsis_payload":  true,
+    "installed_executable_sha256":  "B10C38EC12189A4A53A04600B5EC9E1FFBD41967453F044221451561CB09B131",
+    "raw_release_executable_sha256":  "28E1A268251CDB8888A36B2C797FAC86740A5C6796E554664510352BF180D378",
+    "expected_bundle_marker":  "__TAURI_BUNDLE_TYPE_VAR_NSS"
+}

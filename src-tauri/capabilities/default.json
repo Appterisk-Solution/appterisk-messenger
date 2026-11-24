@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Trusted shell only; no child WebView permissions.",
+  "webviews": ["main"],
+  "permissions": [
+    "core:event:allow-listen", "core:event:allow-unlisten",
+    "allow-open-probe", "allow-set-probe-bounds", "allow-set-probe-visibility", "allow-reload-probe",
+    "allow-capture-profile-metadata", "allow-resume-probe-on-startup", "allow-account-snapshot",
+    "allow-account-add", "allow-account-update", "allow-account-reorder", "allow-account-switch",
+    "allow-account-layout", "allow-account-reload", "allow-account-remove", "allow-settings-save", "allow-restart-mode"
+  ]
+}

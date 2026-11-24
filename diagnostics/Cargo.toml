@@ -1,0 +1,7 @@
+[workspace]
+members = ["control-support", "native-webview2", "minimal-tauri"]
+resolver = "2"
+
+[profile.release]
+opt-level = 2
+strip = true

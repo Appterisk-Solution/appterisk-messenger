@@ -1,0 +1,18 @@
+﻿{
+    "date":  "2026-11-24",
+    "version":  "0.2.0",
+    "platform":  "Windows x64",
+    "installation":  "Final NSIS-installed application",
+    "accounts":  3,
+    "distinct_accounts":  true,
+    "restarts":  3,
+    "profiles":  "Explicit in-place adoption of existing compatibility profiles",
+    "result":  "passed_user_confirmed",
+    "user_statement":  "All three stayed logged in through three restarts",
+    "qr_rescan_required":  false,
+    "notification_delivery_verified":  false,
+    "unread_counts_verified":  false,
+    "background_messages_verified":  false,
+    "media_verified":  false,
+    "msi_upgrade_verified":  false
+}

@@ -1,0 +1,40 @@
+{
+  "account_ids": [
+    "3395db1f-06b7-497c-8676-2b935f4f125b",
+    "1c7ba8b0-99c8-451a-8e2f-123308ecec1b",
+    "c4b9dc51-80ce-4e57-a738-4c182a216b01"
+  ],
+  "adoption_in_place": true,
+  "dialog_hidden": true,
+  "native_resize": true,
+  "passed": true,
+  "remote_origin_ipc": [
+    {
+      "account_add": "denied",
+      "account_snapshot": "denied",
+      "origin": "https://web.whatsapp.com",
+      "reload_probe": "denied",
+      "restart_mode": "denied"
+    },
+    {
+      "account_add": "denied",
+      "account_snapshot": "denied",
+      "origin": "https://web.whatsapp.com",
+      "reload_probe": "denied",
+      "restart_mode": "denied"
+    },
+    {
+      "account_add": "denied",
+      "account_snapshot": "denied",
+      "origin": "https://web.whatsapp.com",
+      "reload_probe": "denied",
+      "restart_mode": "denied"
+    }
+  ],
+  "scope": "Disposable profiles only. No real login, notification or media claims.",
+  "single_visible_view": true,
+  "stage": "remove",
+  "switch_without_reload": true,
+  "normal_browser_exit": true,
+  "centralized_shutdown": true
+}
