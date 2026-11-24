@@ -19,9 +19,12 @@
     "test": "vitest run",
     "test:manager": "node scripts/tauri.mjs build --debug --no-bundle && node scripts/manager-tests.mjs",
     "dev:diagnostics": "node scripts/tauri.mjs dev -- --diagnostics",
-    "test:upgrade": "node scripts/upgrade-0.4.mjs",
+    "test:upgrade": "node scripts/upgrade-0.5.mjs",
     "test:desktop": "node scripts/tauri.mjs build --debug --no-bundle && node scripts/desktop-tests.mjs",
-    "test:updater": "node scripts/cargo.mjs test --manifest-path release-tools/Cargo.toml && node scripts/cargo.mjs test --manifest-path src-tauri/Cargo.toml updater::"
+    "test:updater": "node scripts/cargo.mjs test --manifest-path release-tools/Cargo.toml && node scripts/cargo.mjs test --manifest-path src-tauri/Cargo.toml updater::",
+    "build:signed": "node scripts/signing.mjs build",
+    "signing:init": "node scripts/signing.mjs init",
+    "signing:backup": "node scripts/signing.mjs backup"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",

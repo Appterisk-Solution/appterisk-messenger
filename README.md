@@ -1,6 +1,6 @@
 # Appterisk Messenger 0.5.0 - experimental updater
 
-The Rust-side updater and **Settings > Updates** are implemented. See [release verification](RELEASE_VERIFICATION_0.5.0.md), [GitHub feeds](UPDATE_SERVER.md), [release guide](RELEASE_GUIDE.md) and [signing/recovery](CODE_SIGNING.md). Tauri signatures and Windows publisher signing are separate; Authenticode is currently unavailable. Full installed-update acceptance is pending. Stable publication is gated; Beta is for explicitly opted-in testing. Existing messaging implementations remain limited to WhatsApp, experimental Telegram and experimental Discord.
+The Rust-side updater and **Settings > Updates** are implemented. See [release verification](RELEASE_VERIFICATION_0.5.0.md), [GitHub feeds](UPDATE_SERVER.md), [release guide](RELEASE_GUIDE.md) and [signing/recovery](CODE_SIGNING.md). Tauri signatures and Windows publisher signing are separate; Authenticode is currently unavailable. The isolated two-version installed-updater test passed; real-account post-upgrade acceptance remains pending. Stable publication is gated; Beta is for explicitly opted-in testing. Existing messaging implementations remain limited to WhatsApp, experimental Telegram and experimental Discord.
 
 ## Prior v0.4.0 implementation
 

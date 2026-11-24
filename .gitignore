@@ -32,3 +32,5 @@ dist-ssr
 !*.example
 
 release-out/
+*.recovery.txt
+e2e-owner/
