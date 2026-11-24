@@ -4,15 +4,16 @@ if(!token)throw new Error('Publishing requires an authorized GitHub Actions toke
 const [mode,dir,channel]=process.argv.slice(2);if(!['draft','publish'].includes(mode)||!['stable','beta'].includes(channel))throw new Error('Invalid release operation');
 const manifest=JSON.parse(readFileSync(join(dir,'update.json'),'utf8')),tag=`v${manifest.version}`;validateRelease(manifest.version,channel,manifest.platforms['windows-x86_64-nsis'].signature,manifest.platforms['windows-x86_64-nsis'].url);
 async function api(path,method='GET',body){const response=await fetch(`https://api.github.com/repos/${repo}/${path}`,{method,headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});if(response.status===404&&method==='GET')return null;if(!response.ok)throw new Error(`GitHub operation failed: ${method} ${response.status}`);return response.status===204?null:response.json();}
-let release=await api(`releases/tags/${tag}`);
+let release=(await api('releases?per_page=100')).find(r=>r.tag_name===tag)??await api(`releases/tags/${tag}`);
 if(mode==='draft'){
- if(release&&!release.draft)throw new Error('Refusing to replace an already published release');
  release=release??await api('releases','POST',{tag_name:tag,name:`Appterisk Messenger ${manifest.version}${channel==='beta'?' - experimental prerelease':''}`,draft:true,prerelease:channel==='beta',body:manifest.notes});
- for(const name of readdirSync(dir).filter(n=>/\.(exe|msi|sig|json|txt|md)$/.test(n))){if(release.assets.some(a=>a.name===name))throw new Error('Refusing to overwrite an existing release asset');const url=new URL(release.upload_url.split('{')[0]);if(url.protocol!=='https:'||url.hostname!=='uploads.github.com')throw new Error('Invalid GitHub upload endpoint');url.searchParams.set('name',name);const uploaded=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/octet-stream'},body:readFileSync(join(dir,name))});if(!uploaded.ok)throw new Error(`Asset upload failed: ${uploaded.status}`);}
+ for(const name of readdirSync(dir).filter(n=>/\.(exe|msi|sig|json|txt|md)$/.test(n))){const existing=release.assets.find(a=>a.name===name);if(existing){const expected='sha256:'+createHash('sha256').update(readFileSync(join(dir,name))).digest('hex');if(existing.digest!==expected)throw new Error('Existing immutable release asset differs; refusing to overwrite it');continue;}if(!release.draft)throw new Error('A published release is missing an expected immutable asset');const url=new URL(release.upload_url.split('{')[0]);if(url.protocol!=='https:'||url.hostname!=='uploads.github.com')throw new Error('Invalid GitHub upload endpoint');url.searchParams.set('name',name);const uploaded=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/octet-stream'},body:readFileSync(join(dir,name))});if(!uploaded.ok)throw new Error(`Asset upload failed: ${uploaded.status}`);}
  console.log('Signed artifacts uploaded to a draft release; no channel manifest changed');
 }else{
- if(!release?.draft)throw new Error('Expected a reviewed draft release');
- await api(`releases/${release.id}`,'PATCH',{draft:false,prerelease:channel==='beta'});
+ if(!release)throw new Error('Expected an approved release');
+ if(release.prerelease!==(channel==='beta'))throw new Error('Release channel mismatch');
+ if(release.draft)release=await api(`releases/${release.id}`,'PATCH',{draft:false,prerelease:channel==='beta'});
+ if(release.published_at)manifest.pub_date=release.published_at;
  // Only update the feed after the immutable released NSIS bytes are publicly downloadable.
  const platform=manifest.platforms['windows-x86_64-nsis'],response=await fetch(platform.url);if(!response.ok||!response.url.startsWith('https:'))throw new Error('Published installer is not accessible over HTTPS; manifest unchanged');
  const remote=Buffer.from(await response.arrayBuffer()),localName=decodeURIComponent(new URL(platform.url).pathname.split('/').at(-1));const digest=b=>createHash('sha256').update(b).digest('hex');if(digest(remote)!==digest(readFileSync(join(dir,localName))))throw new Error('Published artifact checksum mismatch; manifest unchanged');
