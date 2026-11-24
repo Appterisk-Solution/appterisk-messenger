@@ -1,0 +1,41 @@
+{
+  "version": "0.5.0",
+  "channel": "beta",
+  "architecture": "x86_64",
+  "built_at": "2026-11-24T13:35:19.813Z",
+  "artifacts": [
+    {
+      "name": "Appterisk-Messenger_0.5.0_x64-setup.exe",
+      "bytes": 3403155,
+      "sha256": "d864b4f21f4a965a56598802b13ca45e94311873fd4d6d128e95fd702d3f61e7"
+    },
+    {
+      "name": "Appterisk-Messenger_0.5.0_x64-setup.exe.sig",
+      "bytes": 452,
+      "sha256": "495a2cd17ce38719036ae3128140995a0e87c4860cea4a60e52fa0d322543c97"
+    },
+    {
+      "name": "Appterisk-Messenger_0.5.0_x64_en-US.msi",
+      "bytes": 4669440,
+      "sha256": "4aeb6df072996f1b4c07b872606324ca3615b8c46ec078173676f208a40518bc"
+    },
+    {
+      "name": "Appterisk-Messenger_0.5.0_x64_en-US.msi.sig",
+      "bytes": 452,
+      "sha256": "5ff60e3b3c89d9e08b0dab03eba58dc1af965f52a70ad29c43f6613b7fac252c"
+    }
+  ],
+  "git_commit": "d3e4d9f75593c1cfe455e89f71b6651d4ddd4dfe",
+  "authenticode": [
+    {
+      "name": "Appterisk-Messenger_0.5.0_x64-setup.exe",
+      "status": "NotSigned",
+      "timestamp_present": false
+    },
+    {
+      "name": "Appterisk-Messenger_0.5.0_x64_en-US.msi",
+      "status": "NotSigned",
+      "timestamp_present": false
+    }
+  ]
+}
