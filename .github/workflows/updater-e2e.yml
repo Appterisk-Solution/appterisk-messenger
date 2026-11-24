@@ -1,0 +1,17 @@
+name: Publish isolated updater test fixture
+on:
+  push:
+    branches: [release-updater-e2e]
+permissions: {contents: write}
+jobs:
+  fixture:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 24}
+      - run: npm ci
+      - run: node scripts/publish-e2e.mjs draft e2e-owner beta
+        env: {GITHUB_TOKEN: '${{ github.token }}'}
+      - run: node scripts/publish-e2e.mjs publish e2e-owner beta
+        env: {GITHUB_TOKEN: '${{ github.token }}'}

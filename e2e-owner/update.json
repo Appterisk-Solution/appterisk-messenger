@@ -1,0 +1,11 @@
+{
+  "version": "0.5.1-e2e.1",
+  "notes": "Isolated updater E2E fixture. Separate application identifier, disposable profiles and development signing key. Not a production messenger installer.",
+  "pub_date": "2026-11-24T13:55:38.737Z",
+  "platforms": {
+    "windows-x86_64-nsis": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUTREeEFETDR1eDV2ZGY0Mi9LRkpMemJOcW5EeDdCWklRSDZDbnRmbDdZRTA5L1kwSnpxdGc5NHYxZUdPVUh1QTFCK3dia2h2c2paamExblRYS040dnVYdmV1anFvMHdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NTI4NzA4CWZpbGU6QXBwdGVyaXNrVXBkYXRlckUyRV8wLjUuMS1lMmUuMV94NjQtc2V0dXAuZXhlCXZlcnNpb246MC41LjEtZTJlLjEKZzM0ODhiYnlIc1ZwdHVUYms1WHZNTXNySC9mSXE0QjNJdVFNQXQ5Qm41SDRTM08xWE5HM1MvczJqei9UM0QxQTJaTGlUNHQ5eWFVdDhHYVU5VWc3REE9PQo=",
+      "url": "https://github.com/Appterisk-Solution/appterisk-messenger/releases/download/v0.5.1-e2e.1/AppteriskUpdaterE2E_0.5.1-e2e.1_x64-setup.exe"
+    }
+  }
+}
