@@ -38,6 +38,7 @@ impl Default for Preferences {
 }
 #[derive(Clone, Serialize)]
 pub struct Snapshot {
+    pub store_managed: bool,
     pub preferences: Preferences,
     pub status: String,
     pub version: Option<String>,
@@ -97,7 +98,8 @@ fn artifact(url: &tauri::Url, version: &str) -> bool {
         && url.path().ends_with("x64-setup.exe")
 }
 fn supported() -> bool {
-    cfg!(all(windows, target_arch = "x86_64"))
+    !cfg!(feature = "store-distribution")
+        && cfg!(all(windows, target_arch = "x86_64"))
         && matches!(
             tauri::utils::platform::bundle_type(),
             Some(tauri::utils::config::BundleType::Nsis)
@@ -107,6 +109,9 @@ fn authorized(caller: &Webview, app: &tauri::AppHandle) -> Result<()> {
     crate::probe::trusted(caller)
         .map_err(|_| "FORBIDDEN: only the local shell may manage updates.")?;
     desktop::ensure_unlocked(app)?;
+    if cfg!(feature = "store-distribution") {
+        return Err("Updates are managed by Microsoft Store.".into());
+    }
     if health::closing() {
         return Err("Application is preparing to close.".into());
     }
@@ -139,7 +144,8 @@ pub fn setup(app: &tauri::AppHandle) -> Result<()> {
             .transpose()?
             .unwrap_or_default()
     };
-    let configured = PUBLIC_KEY.is_some_and(|v| !v.trim().is_empty());
+    let configured =
+        !cfg!(feature = "store-distribution") && PUBLIC_KEY.is_some_and(|v| !v.trim().is_empty());
     if configured {
         app.plugin(
             tauri_plugin_updater::Builder::new()
@@ -150,6 +156,7 @@ pub fn setup(app: &tauri::AppHandle) -> Result<()> {
     }
     app.manage(State(Mutex::new(Runtime {
         snapshot: Snapshot {
+            store_managed: cfg!(feature = "store-distribution"),
             preferences,
             status: "idle".into(),
             version: None,
@@ -447,6 +454,11 @@ pub async fn update_install(app: tauri::AppHandle, caller: Webview, confirmed: b
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "store-distribution")]
+    #[test]
+    fn store_build_cannot_use_the_nsis_installer() {
+        assert!(!supported());
+    }
     #[test]
     fn channel_downgrade_and_artifact_policy() {
         let v = |s| Version::parse(s).unwrap();

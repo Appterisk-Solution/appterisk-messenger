@@ -184,6 +184,7 @@ pub struct Snapshot {
     diagnostic: bool,
     runtime_version: Option<String>,
     synthetic: bool,
+    store_distribution: bool,
     platforms: &'static [crate::platforms::Platform],
 }
 fn snapshot(app: &tauri::AppHandle, r: &Runtime) -> Result<Snapshot> {
@@ -207,6 +208,7 @@ fn snapshot(app: &tauri::AppHandle, r: &Runtime) -> Result<Snapshot> {
         diagnostic: diagnostic_mode(),
         runtime_version: runtime_version(),
         synthetic: synthetic_mode(),
+        store_distribution: cfg!(feature = "store-distribution"),
         platforms: crate::platforms::REGISTRY,
     })
 }

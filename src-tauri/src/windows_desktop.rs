@@ -2,6 +2,11 @@
 use winreg::{RegKey, enums::HKEY_CURRENT_USER};
 const APP_ID: &str = "com.appterisk.messenger";
 pub fn register(_: &tauri::AppHandle) -> Result<(), String> {
+    // MSIX supplies the protocol and notification identity through its manifest.
+    // Never rewrite the standalone installation's per-user registration.
+    if cfg!(feature = "store-distribution") {
+        return Ok(());
+    }
     let exe = std::env::current_exe().map_err(|_| "Cannot locate application")?;
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let (key, _) = hkcu
@@ -27,6 +32,9 @@ pub fn register(_: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 pub fn startup(_: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    if cfg!(feature = "store-distribution") {
+        return Err("Startup changes are unavailable in this Store build.".into());
+    }
     let key = RegKey::predef(HKEY_CURRENT_USER)
         .create_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
         .map_err(|_| "Cannot update Windows startup preference")?
@@ -70,6 +78,9 @@ pub fn activity() -> Option<u32> {
     }
 }
 pub fn notifier() -> windows::core::Result<windows::UI::Notifications::ToastNotifier> {
+    if cfg!(feature = "store-distribution") {
+        return windows::UI::Notifications::ToastNotificationManager::CreateToastNotifier();
+    }
     windows::UI::Notifications::ToastNotificationManager::CreateToastNotifierWithId(
         &windows::core::HSTRING::from(APP_ID),
     )
