@@ -1,7 +1,7 @@
 {
   "name": "appterisk-messenger",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,7 @@
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:telegram": "node scripts/tauri.mjs build --debug --no-bundle && node scripts/telegram-first-load-tests.mjs",
     "test:manager": "node scripts/tauri.mjs build --debug --no-bundle && node scripts/manager-tests.mjs",
     "dev:diagnostics": "node scripts/tauri.mjs dev -- --diagnostics",
     "test:upgrade": "node scripts/upgrade-0.5.mjs",

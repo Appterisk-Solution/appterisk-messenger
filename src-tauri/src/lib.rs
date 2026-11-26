@@ -13,6 +13,7 @@ mod manager_diagnostics;
 mod platforms;
 mod probe;
 mod profile_paths;
+mod telegram_client;
 mod tray;
 mod updater;
 #[cfg(windows)]
