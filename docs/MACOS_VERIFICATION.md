@@ -4,6 +4,12 @@ Date: 2026-11-26 (Asia/Kuala_Lumpur). Source baseline: `0f7adb1` plus local macO
 
 The implementation is versioned 0.5.2 for commit and CI packaging. The local native acceptance and DMG results below were collected before the version bump, using 0.5.1.
 
+Follow-up in 0.5.2: the default macOS WKWebView user agent omits Safari version tokens, and WhatsApp showed its unsupported-Safari screen. WhatsApp views now start on an empty local asset, read only the native browser identity and installed Safari version metadata, then configure `Version/<installed Safari version> Safari/<native WebKit token> AppteriskMessenger/<app version>` before provider navigation. The native engine/platform tokens remain intact. This is an explicit compatibility identity; Safari metadata is not a guarantee of WKWebView feature parity. No browser data is reset and other providers keep their default identity.
+
+An optional live, unlinked login-screen smoke test passed with `loginPrompt: true` and `unsupported: false`; evidence run `3e295455-4346-4872-bb1d-51b93e218734/provider-compatibility.json`. This test collects only browser identity and page-state booleans, never QR data or authentication values. Set `APPTERISK_MACOS_PROVIDER_SMOKE=1` when running `npm run test:macos` to opt in to this external-network smoke check; it is not a CI prerequisite or proof of real login persistence.
+
+Final 0.5.2 validation: 27 Rust tests, 23 frontend tests, TypeScript/ESLint, native alignment at three sizes and three full storage restarts passed. The login-screen smoke check was repeated with a three-second stability delay in run `594c97a2-1209-4b5a-acf1-71e00e16aab3`; the unsupported-browser flag remained false. The rebuilt 0.5.2 arm64 DMG passed checksum and ad-hoc app signature verification. Notarization and real linked-login acceptance remain pending.
+
 The Windows-only account initialization guard has been replaced with a native macOS adapter. The pinned Tauri 2.12.7 / Wry 0.57.3 implementation was inspected: named persistent WKWebView stores use `WKWebsiteDataStore::dataStoreForIdentifier` on macOS 14+, while older systems silently fall back to the shared default store. The adapter rejects older systems before creating a view. Each existing account UUID maps directly to the native store UUID; the live WKWebView's persistent flag and identifier are checked before showing it. Metadata IDs, profile locks and removal-without-storage-deletion are preserved. Windows profile APIs remain platform-gated.
 
 ## Actual local results

@@ -59,6 +59,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-web-kit",
  "open",
+ "plist",
  "rusqlite",
  "semver",
  "serde",

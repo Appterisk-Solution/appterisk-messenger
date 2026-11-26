@@ -1,4 +1,4 @@
-//! Debug-only, disposable native storage test. No provider pages or real account stores.
+//! Debug-only, disposable native storage test. No real account stores or logins.
 use serde_json::{Value, json};
 use std::{
     io::{Read, Write},
@@ -9,6 +9,22 @@ use tauri::{
     Manager, WebviewUrl,
     webview::{PageLoadEvent, WebviewBuilder},
 };
+
+async fn compatibility_metadata(view: &tauri::Webview) -> Result<Value, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let tx = Mutex::new(Some(tx));
+    // This is only used with a new, unlinked diagnostic account. Return flags,
+    // never page text, QR codes, cookies or authentication values.
+    view.eval_with_callback(r#"JSON.stringify({userAgent:navigator.userAgent,unsupported:/WhatsApp works with Safari|update Safari/i.test(document.body?.innerText??''),loginPrompt:/scan to log in|log in with phone number/i.test(document.body?.innerText??'')})"#, move |value| {
+        if let Some(tx) = tx.lock().unwrap().take() { let _ = tx.send(value); }
+    }).map_err(|e| e.to_string())?;
+    let encoded = tokio::time::timeout(Duration::from_secs(5), rx)
+        .await
+        .map_err(|_| "Compatibility check timeout")?
+        .map_err(|_| "Compatibility check failed")?;
+    let decoded: String = serde_json::from_str(&encoded).map_err(|e| e.to_string())?;
+    serde_json::from_str(&decoded).map_err(|e| e.to_string())
+}
 
 pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
@@ -24,6 +40,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .find(|pair| pair[0] == "--macos-isolation-diagnostic")
         .ok_or("Missing phase")?[1]
         .parse()?;
+    let provider_smoke = args.iter().any(|arg| arg == "--macos-provider-smoke");
     if phase > 3 {
         return Err("Invalid phase".into());
     }
@@ -136,6 +153,43 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     report.join("geometry.json"),
                     json!({"pass":true,"sizes":measurements}).to_string(),
                 );
+                if phase == 0 && provider_smoke {
+                    let view = handle
+                        .get_webview(&crate::accounts::label(&account.id))
+                        .unwrap();
+                    let start = std::time::Instant::now();
+                    loop {
+                        let mut metadata = match compatibility_metadata(&view).await {
+                            Ok(metadata) => metadata,
+                            Err(_) if start.elapsed() < Duration::from_secs(45) => {
+                                tokio::time::sleep(Duration::from_secs(1)).await;
+                                continue;
+                            }
+                            Err(error) => return Err(error),
+                        };
+                        if metadata["loginPrompt"] == true {
+                            tokio::time::sleep(Duration::from_secs(3)).await;
+                            metadata = compatibility_metadata(&view).await?;
+                        }
+                        if metadata["loginPrompt"] == true
+                            || metadata["unsupported"] == true
+                            || start.elapsed() > Duration::from_secs(45)
+                        {
+                            std::fs::write(
+                                report.join("provider-compatibility.json"),
+                                metadata.to_string(),
+                            )
+                            .map_err(|e| e.to_string())?;
+                            if metadata["unsupported"] == true || metadata["loginPrompt"] != true {
+                                return Err(
+                                    "WhatsApp did not reach its unlinked login screen".into()
+                                );
+                            }
+                            break;
+                        }
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                    }
+                }
             }
             for i in 0..3 {
                 let mut bytes = run.into_bytes();

@@ -1,8 +1,23 @@
 //! Persistent WKWebView stores. Never allow Wry's pre-macOS-14 shared-store fallback.
-use objc2_foundation::NSProcessInfo;
+use objc2_foundation::{NSProcessInfo, NSString};
 use objc2_web_kit::WKWebView;
 use tauri::Manager;
 use tauri::{Webview, webview::WebviewBuilder};
+
+pub fn startup_url(url: &tauri::Url) -> bool {
+    url.username().is_empty()
+        && url.password().is_none()
+        && url.query().is_none()
+        && url.fragment().is_none()
+        && url.path() == "/account-start.html"
+        && ((url.scheme() == "tauri"
+            && url.host_str() == Some("localhost")
+            && url.port().is_none())
+            || (cfg!(debug_assertions)
+                && url.scheme() == "http"
+                && url.host_str() == Some("localhost")
+                && url.port() == Some(1420)))
+}
 
 /// DOM rectangles start inside WKWebView's safe content area, whereas child
 /// frames are positioned in the containing NSView. Convert between those spaces.
@@ -71,6 +86,91 @@ pub fn configure(
         .incognito(false))
 }
 
+fn compatible_identity(native: &str, safari_version: &str) -> Result<String, String> {
+    // Read the installed version; never invent a newer browser/engine version.
+    if safari_version.len() > 32
+        || safari_version
+            .split('.')
+            .any(|part| part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()))
+    {
+        return Err("Cannot determine the installed Safari compatibility version.".into());
+    }
+    let engine = native
+        .split_whitespace()
+        .find_map(|token| token.strip_prefix("AppleWebKit/"))
+        .ok_or("Native WebKit identity unavailable.")?;
+    if native.len() > 1024
+        || engine.is_empty()
+        || !engine.bytes().all(|b| b.is_ascii_digit() || b == b'.')
+    {
+        return Err("Unexpected native WebKit identity.".into());
+    }
+    if native
+        .split_whitespace()
+        .any(|token| token.starts_with("Version/"))
+    {
+        return Ok(format!(
+            "{native} AppteriskMessenger/{}",
+            env!("CARGO_PKG_VERSION")
+        ));
+    }
+    Ok(format!(
+        "{native} Version/{safari_version} Safari/{engine} AppteriskMessenger/{}",
+        env!("CARGO_PKG_VERSION")
+    ))
+}
+
+/// Configure compatibility tokens while the new account is on an empty local page.
+/// No provider page, cookie, authentication value or stored browser data is read.
+pub async fn prepare_whatsapp(view: &Webview) -> Result<(), String> {
+    let metadata = plist::Value::from_file("/Applications/Safari.app/Contents/Info.plist")
+        .map_err(
+            |_| "Cannot read the installed Safari version. Install Safari before opening WhatsApp.",
+        )?;
+    let version = metadata
+        .as_dictionary()
+        .and_then(|d| d.get("CFBundleShortVersionString"))
+        .and_then(plist::Value::as_string)
+        .ok_or("Installed Safari version unavailable.")?;
+    // A newly created WKWebView may still be committing its initial blank document.
+    let start = std::time::Instant::now();
+    let native = loop {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let tx = std::sync::Mutex::new(Some(tx));
+        view.eval_with_callback("navigator.userAgent", move |value| {
+            if let Some(tx) = tx.lock().unwrap().take() {
+                let _ = tx.send(value);
+            }
+        })
+        .map_err(|_| "Cannot inspect native browser identity.")?;
+        if let Ok(Ok(value)) = tokio::time::timeout(std::time::Duration::from_millis(500), rx).await
+        {
+            if let Ok(native) = serde_json::from_str::<String>(&value) {
+                break native;
+            }
+        }
+        if start.elapsed() > std::time::Duration::from_secs(10) {
+            return Err("Browser identity inspection timed out.".into());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
+    let identity = compatible_identity(&native, version)?;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    view.with_webview(move |native| {
+        // SAFETY: the supplied WKWebView is live and this executes on its UI thread.
+        unsafe {
+            (&*native.inner().cast::<WKWebView>())
+                .setCustomUserAgent(Some(&NSString::from_str(&identity)));
+        }
+        let _ = tx.send(());
+    })
+    .map_err(|_| "Could not set the native browser compatibility identity.")?;
+    tokio::time::timeout(std::time::Duration::from_secs(10), rx)
+        .await
+        .map_err(|_| "Browser identity setup timed out.")?
+        .map_err(|_| "Browser identity setup failed.".into())
+}
+
 pub async fn verify(view: &Webview, id: &str) -> Result<(), String> {
     let expected = identifier(id)?;
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -112,6 +212,31 @@ pub async fn geometry(view: &Webview) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_the_exact_empty_startup_asset_is_allowed() {
+        assert!(startup_url(
+            &"tauri://localhost/account-start.html".parse().unwrap()
+        ));
+        for url in [
+            "tauri://localhost/index.html",
+            "tauri://user@localhost/account-start.html",
+            "https://localhost/account-start.html",
+            "tauri://localhost/account-start.html?remote=true",
+        ] {
+            assert!(!startup_url(&url.parse().unwrap()));
+        }
+    }
+    #[test]
+    fn compatibility_preserves_native_engine_and_validates_version() {
+        let native = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)";
+        let ua = compatible_identity(native, "27.2").unwrap();
+        assert!(ua.starts_with(native));
+        assert!(ua.contains("Version/27.2 Safari/605.1.15 AppteriskMessenger/"));
+        for version in ["", "99.fake", "27\nChrome/999", ".27", "27."] {
+            assert!(compatible_identity(native, version).is_err());
+        }
+        assert!(compatible_identity("Chrome/999", "27.2").is_err());
+    }
     #[test]
     fn store_identity_is_stable_distinct_and_requires_uuid() {
         let a = "c4b9dc51-80ce-4e57-a738-4c182a216b01";

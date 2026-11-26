@@ -427,9 +427,20 @@ pub async fn initialize(
                 json!({"profile_id":id,"entry_url":entry_url}),
             );
         }
-        let builder=WebviewBuilder::new(&name,WebviewUrl::External(entry_url.parse().map_err(|_|"Invalid provider URL.")?))
+        let initial_url = if cfg!(target_os = "macos") && platform.id == "whatsapp" {
+            WebviewUrl::App("account-start.html".into())
+        } else {
+            WebviewUrl::External(entry_url.parse().map_err(|_| "Invalid provider URL.")?)
+        };
+        let builder=WebviewBuilder::new(&name,initial_url)
             .incognito(false).devtools(false).disable_drag_drop_handler()
-            .on_navigation(move |url| platform.navigation(url))
+            .on_navigation(move |url| {
+                if platform.navigation(url) { return true; }
+                #[cfg(target_os = "macos")]
+                { platform.id == "whatsapp" && crate::macos_profiles::startup_url(url) }
+                #[cfg(not(target_os = "macos"))]
+                { false }
+            })
             .on_new_window(move|url,_|{if external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
             .on_document_title_changed(move|_,title|crate::desktop::title(&title_app,&title_id,&title))
             .on_page_load(move|_,payload|{if platform.navigation(payload.url()){let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));}});
@@ -455,6 +466,15 @@ pub async fn initialize(
         if let Err(error) = crate::macos_profiles::verify(&view, id).await {
             let _ = view.close();
             return Err(error);
+        }
+        #[cfg(target_os = "macos")]
+        if platform.id == "whatsapp" {
+            if let Err(error) = crate::macos_profiles::prepare_whatsapp(&view).await {
+                let _ = view.close();
+                return Err(error);
+            }
+            view.navigate(entry_url.parse().map_err(|_| "Invalid provider URL.")?)
+                .map_err(|_| "Could not open WhatsApp.")?;
         }
         #[cfg(windows)]
         match crate::windows_profiles::attach(app, &view, id, &canonical) {

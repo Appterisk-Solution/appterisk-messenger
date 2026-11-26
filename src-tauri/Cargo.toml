@@ -47,6 +47,7 @@ winreg = "0.56.0"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = "=0.3.2"
 objc2-web-kit = "=0.3.2"
+plist = "=1.10.4"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
