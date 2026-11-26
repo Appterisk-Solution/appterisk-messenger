@@ -5,7 +5,7 @@ import {isTauri} from '@tauri-apps/api/core';
 import {command} from '../services/probe';
 import {useAccounts} from '../stores/accounts';
 import {t} from '../i18n';
-interface Snapshot {preferences:{channel:'stable'|'beta';automatic:boolean};status:string;version:string|null;notes:string;received:number;total:number|null;last_check:number|null;error:string|null;configured:boolean;install_supported:boolean}
+interface Snapshot {store_managed?:boolean;preferences:{channel:'stable'|'beta';automatic:boolean};status:string;version:string|null;notes:string;received:number;total:number|null;last_check:number|null;error:string|null;configured:boolean;install_supported:boolean}
 const accounts=useAccounts(),data=ref<Snapshot>(),channel=ref<'stable'|'beta'>('stable'),automatic=ref(true),betaConfirmed=ref(false),installConfirmed=ref(false),showNotes=ref(true),working=ref(false),localError=ref(false);
 let stop:UnlistenFn|undefined,disposed=false;
 async function refresh(){data.value=await command<Snapshot>('update_snapshot');if(data.value){channel.value=data.value.preferences.channel;automatic.value=data.value.preferences.automatic;}}
@@ -24,6 +24,9 @@ function status(value:string){return t(({idle:'Ready to check',checking:'Checkin
 </script>
 <template>
   <section><p class="eyebrow">{{t('APPLICATION UPDATES')}}</p><h3>{{t('Updates')}}</h3>
+    <p v-if="data?.store_managed" class="section-description">{{t("Updates are managed by Microsoft Store. Open the Store Library to check for updates.")}}</p>
+    <p v-if="data?.store_managed">{{t('Current version')}}: {{accounts.data?.version}}</p>
+    <template v-else>
     <p class="section-description">{{t('Updates preserve your accounts and require confirmation before installation.')}}</p>
     <dl class="about-details"><dt>{{t('Current version')}}</dt><dd>{{accounts.data?.version}}</dd><dt>WebView2 Evergreen</dt><dd>{{accounts.data?.runtime_version??t('Not available')}}</dd><dt>{{t('Latest available version')}}</dt><dd>{{data?.version??t('Not available')}}</dd><dt>{{t('Last update check')}}</dt><dd>{{data?.last_check?new Date(data.last_check*1000).toLocaleString():t('Never')}}</dd></dl>
     <p v-if="data&&!data.configured" class="field-help">{{t('This build has no configured update signing key. Messaging remains available.')}}</p>
@@ -43,6 +46,7 @@ function status(value:string){return t(({idle:'Ready to check',checking:'Checkin
       <button v-if="data?.notes" class="text-button" @click="showNotes=!showNotes">{{t('View Release Notes')}}</button></div>
     <div v-if="data?.status==='ready'"><label class="checkbox-label"><input v-model="installConfirmed" type="checkbox"/>{{t('Close messaging browsers, install the verified update and restart')}}</label><button class="primary-button" :disabled="working||!installConfirmed" @click="action('update_install',{confirmed:true})">{{t('Install and Restart')}}</button></div>
     <pre v-if="showNotes&&data?.notes" class="update-notes">{{data.notes}}</pre>
+    </template>
   </section>
 </template>
 <style scoped>.update-notes{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;font-size:13px;line-height:1.6;max-height:300px;overflow:auto}progress{width:100%}.security-actions{flex-wrap:wrap;gap:10px}</style>

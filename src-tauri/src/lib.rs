@@ -50,7 +50,8 @@ pub fn run() {
         .manage(probe::ProbeState::default())
         .setup(|_app| {
             health::startup(_app.handle());
-            let mut root = _app.path().app_local_data_dir()?;
+            let mut root =
+                profile_paths::app_data_root(_app.handle()).map_err(std::io::Error::other)?;
             if accounts::synthetic_mode() {
                 let args: Vec<_> = std::env::args().collect();
                 let run = args.last().ok_or("Missing synthetic test run ID")?;

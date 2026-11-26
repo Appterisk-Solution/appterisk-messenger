@@ -9,7 +9,6 @@ use std::{
     },
     time::{SystemTime, UNIX_EPOCH},
 };
-use tauri::Manager;
 
 static LOG_LOCK: Mutex<()> = Mutex::new(());
 pub static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
@@ -19,7 +18,7 @@ pub fn log(app: &tauri::AppHandle, event: &'static str, fields: Value) {
     let Ok(_guard) = LOG_LOCK.lock() else {
         return;
     };
-    let Ok(root) = app.path().app_local_data_dir() else {
+    let Ok(root) = crate::profile_paths::app_data_root(app) else {
         return;
     };
     let root = root.join("logs");

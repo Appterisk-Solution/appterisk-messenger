@@ -99,4 +99,4 @@ Independent and unofficial; not affiliated with WhatsApp or Meta.
 
 Project-owned source is available under the [MIT License](LICENSE). Dependencies, Microsoft WebView2 and remote provider websites retain their own terms; MIT does not relicense them.
 
-See the [Code signing policy](CODE_SIGNING.md) and [privacy policy](PRIVACY.md). Free signing application materials are prepared for SignPath Foundation; no approval or Windows publisher signing is claimed. Existing installers remain Authenticode-unsigned.
+See the [Code signing policy](CODE_SIGNING.md) and [privacy policy](PRIVACY.md). SignPath Foundation declined the free application for insufficient public reputation; no Windows publisher signing is claimed. A [Microsoft Store MSIX candidate](STORE_RELEASE.md) is now being prepared. Existing installers remain Authenticode-unsigned.

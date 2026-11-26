@@ -4,7 +4,7 @@ import { command, messageFor, type Bounds } from '../services/probe';
 export interface Account {id:string;name:string;platform:string;profile_key:string;icon:string;display_order:number;notifications_enabled:boolean;created_at:string;updated_at:string;last_active_at:string|null}
 export interface Settings {theme:'system'|'dark'|'light';language:'system'|'en'|'ms'|'zh'|'zh-CN'|'zh-TW';default_account:string|null;last_active_account:string|null}
 export interface Platform {id:string;name:string;entry_url:string;origin:string;symbol:string;status:string;available:boolean;limitations:string}
-export interface Snapshot {platforms?:Platform[];accounts:Account[];settings:Settings;legacy:{id:string;name:string}[];version:string;diagnostic:boolean;runtime_version:string|null;synthetic?:boolean}
+export interface Snapshot {platforms?:Platform[];accounts:Account[];settings:Settings;legacy:{id:string;name:string}[];version:string;diagnostic:boolean;runtime_version:string|null;synthetic?:boolean;store_distribution?:boolean}
 export const useAccounts=defineStore('accounts',()=>{
   const data=ref<Snapshot|null>(null),activeId=ref<string|null>(null),error=ref(''),busy=ref(false),ready=ref(false);
   const active=computed(()=>data.value?.accounts.find(a=>a.id===activeId.value));

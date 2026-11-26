@@ -259,9 +259,7 @@ pub async fn open_probe(
         runtime.browsers.clear();
     }
     runtime.fixture = None;
-    let root = app
-        .path()
-        .app_local_data_dir()
+    let root = crate::profile_paths::app_data_root(&app)
         .map_err(|_| err("PROFILE_STORAGE", "Application data unavailable."))?
         .join("compatibility-profiles");
     std::fs::create_dir_all(&root)

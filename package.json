@@ -24,7 +24,8 @@
     "test:updater": "node scripts/cargo.mjs test --manifest-path release-tools/Cargo.toml && node scripts/cargo.mjs test --manifest-path src-tauri/Cargo.toml updater::",
     "build:signed": "node scripts/signing.mjs build",
     "signing:init": "node scripts/signing.mjs init",
-    "signing:backup": "node scripts/signing.mjs backup"
+    "signing:backup": "node scripts/signing.mjs backup",
+    "build:store": "node scripts/build-store.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",

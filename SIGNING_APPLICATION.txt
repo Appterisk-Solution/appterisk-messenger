@@ -1,6 +1,8 @@
 Appterisk Messenger — SignPath Foundation application preparation
 
-Status: prepared, not submitted or approved. Existing installers are unsigned.
+Status: submitted by owner, then declined for insufficient public reputation.
+Owner supplied the response on 2026-11-26. Existing installers remain unsigned.
+The material below is historical preparation, not an active approval claim.
 
 Application page: https://signpath.org/apply
 Project: Appterisk Messenger
