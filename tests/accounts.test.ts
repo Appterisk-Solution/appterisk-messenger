@@ -16,3 +16,15 @@ describe('production account manager',()=>{
   it('hides native views before showing settings and restores after closing',async()=>{const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();expect(wrapper.findAll('.account-item')).toHaveLength(3);expect(wrapper.find('.panels').exists()).toBe(false);let release:()=>void=()=>{};invoke.mockImplementation(async(name)=>{if(name==='account_layout')await new Promise<void>(resolve=>{release=resolve;});});await wrapper.get('[aria-label="Settings"]').trigger('click');await flushPromises();expect(wrapper.find('[role="dialog"]').exists()).toBe(false);expect(invoke).toHaveBeenLastCalledWith('account_layout',expect.objectContaining({blocked:true}));release();await flushPromises();expect(wrapper.get('[role="dialog"]').text()).toContain('Settings');invoke.mockResolvedValue(undefined);await wrapper.get('[aria-label="Close settings"]').trigger('click');await flushPromises();expect(wrapper.find('[role="dialog"]').exists()).toBe(false);expect(invoke).toHaveBeenLastCalledWith('account_layout',expect.objectContaining({blocked:false}));wrapper.unmount();});
   it('requires an explicit remove action and never issues storage deletion commands',async()=>{const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();await wrapper.get('.account-item').trigger('contextmenu');await flushPromises();const removeOption=wrapper.findAll('.context-actions button').find(b=>b.text().includes('Remove account'))!;await removeOption.trigger('click');expect(wrapper.get('[role="dialog"]').text()).toContain('Its browser profile stays on this device');expect(invoke.mock.calls.some(c=>c[0]==='account_remove')).toBe(false);invoke.mockImplementation(async(name)=>name==='account_remove'?{...snapshot(),accounts:snapshot().accounts.slice(1)}:undefined);await wrapper.get('.danger-button').trigger('click');await flushPromises();expect(invoke).toHaveBeenCalledWith('account_remove',{id:'a',confirmed:true});expect(invoke.mock.calls.some(c=>/delete|clear|token/.test(c[0]))).toBe(false);wrapper.unmount();});
 });
+
+it('queues an incoming chat link, hides provider views and requires account selection',async()=>{
+  invoke.mockImplementation(async(name)=>name==='account_snapshot'?snapshot():name==='chat_link_pending'?{id:'link-request',platform:'whatsapp'}:undefined);
+  const wrapper=mount(App,{global:{plugins:[createPinia()]}});await flushPromises();
+  expect(wrapper.get('[role="dialog"]').text()).toContain('Choose the WhatsApp account');
+  expect(invoke).toHaveBeenCalledWith('account_layout',expect.objectContaining({blocked:true}));
+  expect(invoke.mock.calls.some(c=>c[0]==='chat_link_open')).toBe(false);
+  await wrapper.get('.context-actions button').trigger('click');await flushPromises();
+  expect(invoke).toHaveBeenCalledWith('chat_link_open',expect.objectContaining({requestId:'link-request',accountId:'a'}));
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  wrapper.unmount();
+});

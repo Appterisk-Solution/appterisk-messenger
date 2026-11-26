@@ -15,10 +15,17 @@ const desktop=useDesktop(),password=ref(''),passwordInput=ref<HTMLInputElement>(
 let initialized=false;
 const updateAvailable=ref(false);
 const slot=ref<HTMLElement>(),dialogElement=ref<HTMLElement>();
-const modal=ref<'add'|'edit'|'remove'|'menu'|'settings'|null>(null);
+const modal=ref<'add'|'edit'|'remove'|'menu'|'settings'|'link'|null>(null);
 const tab=ref('general'),target=ref<Account>(),name=ref(''),icon=ref('jade'),notificationPreference=ref(false),legacyId=ref('');
 const loaded=ref<Record<string,boolean>>({}),dragged=ref(''),shuttingDown=ref(false),booted=ref(false);
 const platformId=ref('whatsapp');
+const chatLink=ref<{id:string;platform:string}|null>(null),chatLinkText=ref('');
+const linkAccounts=computed(()=>store.data?.accounts.filter(a=>a.platform===chatLink.value?.platform)??[]);
+async function refreshChatLink(){chatLink.value=await command('chat_link_pending');}
+async function submitChatLink(){await store.run(async()=>{await command('chat_link_submit',{url:chatLinkText.value});chatLinkText.value='';await refreshChatLink();});}
+async function openChatLink(account:Account){if(!chatLink.value)return;await store.run(async()=>{await command('chat_link_open',{requestId:chatLink.value!.id,accountId:account.id,bounds:bounds()});chatLink.value=null;store.activeId=account.id;await closeModal();});}
+watch(()=>[chatLink.value?.id,desktop.locked,store.busy,modal.value,booted.value],()=>{if(chatLink.value&&!desktop.locked&&!store.busy&&!modal.value&&booted.value)void openModal('link');});
+
 const platforms=computed(()=>store.data?.platforms??[{id:'whatsapp',name:'WhatsApp',symbol:'WA',available:true,status:'verified',limitations:''}]);
 const selectedPlatform=computed(()=>platforms.value.find(p=>p.id===platformId.value));
 function provider(id:string){return platforms.value.find(p=>p.id===id);}
@@ -48,7 +55,7 @@ async function openModal(value:typeof modal.value,account?:Account){
     modal.value=value;await nextTick();dialogElement.value?.querySelector<HTMLElement>('input,button,select')?.focus();
   });
 }
-async function closeModal(){modal.value=null;await nextTick();await syncLayout();previousFocus?.focus();}
+async function closeModal(){if(modal.value==='link'&&chatLink.value){await command('chat_link_open',{requestId:chatLink.value.id,accountId:null,bounds:bounds()});chatLink.value=null;}if(modal.value==='link')chatLinkText.value='';modal.value=null;await nextTick();await syncLayout();previousFocus?.focus();}
 async function saveAccount(){await store.run(async()=>{
   if(modal.value==='edit'&&target.value){await store.mutate('account_update',{id:target.value.id,name:name.value,icon:icon.value,notificationsEnabled:notificationPreference.value});await closeModal();}
   else{const before=new Set(store.data?.accounts.map(a=>a.id));await store.mutate('account_add',{name:name.value,legacyId:legacyId.value||null,platform:platformId.value});const account=store.data?.accounts.find(a=>!before.has(a.id));await closeModal();if(account){await store.mutate('account_update',{id:account.id,name:account.name,icon:icon.value,notificationsEnabled:notificationPreference.value});await store.select(account.id,bounds());}}
@@ -63,7 +70,7 @@ async function initializeAccounts(){if(initialized||desktop.locked||!store.ready
 async function unlock(){await store.run(async()=>{try{await command('desktop_unlock',{password:password.value});await desktop.refresh();}finally{password.value='';}});await initializeAccounts();await syncLayout();}
 async function lock(){await store.run(()=>command('desktop_lock'));}
 function cycle(previous:boolean){const list=store.data?.accounts??[];if(!list.length)return;const current=list.findIndex(a=>a.id===store.activeId);const next=list[(current+(previous?-1:1)+list.length)%list.length];if(next)void select(next.id);}
-watch(()=>desktop.locked,async value=>{if(value){modal.value=null;await nextTick();passwordInput.value?.focus();}else{await nextTick();if(initialized)await syncLayout();else await initializeAccounts();}});
+watch(()=>desktop.locked,async value=>{if(value){modal.value=null;await nextTick();passwordInput.value?.focus();}else{await nextTick();if(initialized)await syncLayout();else await initializeAccounts();await refreshChatLink();}});
 watch(()=>desktop.data?.prompts.length,value=>{if(value)modal.value=null;});
 watch(()=>[desktop.data?.pending_account,desktop.locked,store.busy] as const,([id,locked,busy])=>{if(id&&!locked&&!busy&&initialized)void select(id);});
 function keydown(e:KeyboardEvent){
@@ -82,6 +89,7 @@ onMounted(async()=>{
   systemTheme?.addEventListener('change',applyTheme);applyTheme();document.addEventListener('keydown',keydown);
   if(isTauri()){
     const updateStop=await listen<{status:string}>('update-state',e=>{updateAvailable.value=['available','ready'].includes(e.payload.status);});if(disposed)updateStop();else stops.push(updateStop);
+    const chatLinkStop=await listen('chat-link-pending',()=>{void refreshChatLink().catch(e=>{store.error=messageFor(e);});});if(disposed)chatLinkStop();else stops.push(chatLinkStop);
     const desktopStop=await listen<DesktopSnapshot>('desktop-state',e=>desktop.receive(e.payload));if(disposed)desktopStop();else stops.push(desktopStop);
     const settingsStop=await listen('desktop-settings',()=>{if(!desktop.locked)void openModal('settings');});if(disposed)settingsStop();else stops.push(settingsStop);
     const loadStop=await listen<{id:string;loaded:boolean}>('account-load',e=>{loaded.value[e.payload.id]=e.payload.loaded;});if(disposed)loadStop();else stops.push(loadStop);
@@ -92,7 +100,7 @@ onMounted(async()=>{
   await store.run(async()=>{await store.refresh();await desktop.refresh();});booted.value=true;await nextTick();
   if(store.data?.diagnostic||store.data?.synthetic)return;
   observer=new ResizeObserver(resize);if(slot.value)observer.observe(slot.value);window.addEventListener('resize',resize);
-  await initializeAccounts();
+  await initializeAccounts();await refreshChatLink();
 });
 onUnmounted(()=>{disposed=true;observer?.disconnect();clearTimeout(timer);stops.forEach(stop=>stop());systemTheme?.removeEventListener('change',applyTheme);window.removeEventListener('resize',resize);document.removeEventListener('keydown',keydown);});
 </script>
@@ -133,7 +141,8 @@ onUnmounted(()=>{disposed=true;observer?.disconnect();clearTimeout(timer);stops.
     </div>
     <div v-if="modal && !desktop.locked" class="modal-backdrop" @click.self="!store.busy && store.run(closeModal)">
       <section ref="dialogElement" class="app-dialog" :class="{'settings-dialog':modal==='settings'}" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-        <template v-if="modal==='settings'">
+        <template v-if="modal==='link'"><button class="close-button" aria-label="Close link dialog" :disabled="store.busy" @click="store.run(closeModal)">&times;</button><h2 id="dialog-title">Open messaging link</h2><template v-if="chatLink"><p class="section-description">Choose the {{provider(chatLink.platform)?.name}} account to open this link.</p><div class="context-actions"><button v-for="account in linkAccounts" :key="account.id" :disabled="store.busy" @click="openChatLink(account)">{{account.name}}</button></div><p v-if="!linkAccounts.length" class="field-help">Add an account for this service first, then open the link again.</p><button class="secondary-button" :disabled="store.busy" @click="store.run(closeModal)">Cancel</button></template><form v-else @submit.prevent="submitChatLink"><label class="field-label" for="chat-link">WhatsApp or Telegram chat link</label><input id="chat-link" v-model="chatLinkText" type="text" maxlength="8192" autocomplete="off" spellcheck="false" required placeholder="https://wa.me/... or https://t.me/..."/><p class="field-help">Supports phone chats, Telegram usernames and public message links. Other link actions are not supported.</p><div class="dialog-actions"><button class="primary-button" :disabled="store.busy||!chatLinkText.trim()">Continue</button></div></form></template>
+        <template v-else-if="modal==='settings'">
           <aside class="settings-nav"><p class="eyebrow">APPTERISK</p><h2 id="dialog-title">{{ t("Settings") }}</h2><button v-for="item in ['general','notifications','tray','downloads','privacy','accounts','updates','about','diagnostics']" :key="item" :class="{active:tab===item}" @click="tab=item">{{ t(({general:t('General'),notifications:t('Notifications'),tray:t('System Tray'),downloads:t('Downloads'),privacy:t('Privacy and Security'),accounts:t('Accounts'),updates:t('Updates'),about:t('About'),diagnostics:t('Diagnostics')} as Record<string,string>)[item]??item) }}</button><p class="settings-version">{{ t('Version') }} {{ store.data?.version }}</p></aside>
           <div class="settings-body"><p v-if="store.data?.macos" class="field-help">Experimental macOS support: accounts use independent persistent browser storage. Native notifications, managed downloads, camera/microphone permissions, launch at login and shortcuts while a provider has focus are unavailable.</p><button class="close-button" :aria-label='t("Close settings")' :disabled="store.busy" @click="store.run(closeModal)">×</button>
             <template v-if="tab==='general'"><p class="eyebrow">{{ t("MAKE IT YOURS") }}</p><h3>{{ t("General") }}</h3><p class="section-description">{{ t("A space that feels right for you.") }}</p>
@@ -142,6 +151,7 @@ onUnmounted(()=>{disposed=true;observer?.disconnect();clearTimeout(timer);stops.
               <label class="field-label" for="language">{{ t("Language") }}</label><select id="language" :value="settings?.language" :disabled="store.busy" @change="preference('language',($event.target as HTMLSelectElement).value)"><option value="system">{{ t("System language") }}</option><option value="en">English</option><option v-if="settings?.language==='ms'" value="ms">{{ t("English (legacy preference)") }}</option><option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option></select><p class="field-help">{{ t("Each service manages its own language.") }}</p>
               <p v-if="store.data?.store_distribution" class="field-help">{{t("Startup changes are unavailable in this Store build.")}}</p>
               <label v-if="desktop.data&&!store.data?.store_distribution&&!store.data?.macos" class="setting-toggle"><span>{{ t('Launch on Windows startup') }}</span><input type="checkbox" :checked="desktop.data.config.launch_on_startup" :disabled="store.busy" @change="store.run(()=>desktop.preference('launch_on_startup',($event.target as HTMLInputElement).checked))" /></label>
+              <h4 class="field-label">Open messaging links</h4><p class="field-help">Paste a WhatsApp or Telegram chat link and choose which account opens it.</p><button class="secondary-button" @click="modal='link'">Open link</button><template v-if="!store.data?.macos"><p class="field-help">To open tg:// and whatsapp:// links from other apps, choose Appterisk Messenger in Windows Default apps. HTTPS links may still open your browser first.</p><button class="text-button" @click="store.run(()=>command('chat_link_defaults'))">Windows Default apps</button></template>
               <div class="keyboard-note"><strong>{{ t("A few useful shortcuts") }}</strong><span>{{store.data?.macos?'⌘':'Ctrl'}} + 1–9 <small>{{ t("Switch account") }}</small></span><span>{{store.data?.macos?'⌘':'Ctrl'}} + R <small>{{ t("Reload account") }}</small></span><span>{{store.data?.macos?'⌘':'Ctrl'}} + , <small>{{ t("Open settings") }}</small></span></div>
             </template>
             <UpdatePreferences v-else-if="tab==='updates'" />

@@ -415,6 +415,7 @@ pub async fn initialize(
         let title_app = app.clone();
         let title_id = id.to_string();
         let external_app = app.clone();
+        let link_app = app.clone();
         let entry_url = if platform.id == "telegram" {
             crate::telegram_client::entry_url(&canonical)?
         } else {
@@ -442,8 +443,8 @@ pub async fn initialize(
         let compatibility_logging = std::env::args().any(|arg| arg == "--macos-compatibility-log");
         let builder=WebviewBuilder::new(&name,WebviewUrl::External(entry_url.parse().map_err(|_|"Invalid provider URL.")?))
             .incognito(false).devtools(false).disable_drag_drop_handler()
-            .on_navigation(move |url| platform.navigation(url))
-            .on_new_window(move|url,_|{if external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
+            .on_navigation(move |url| {if platform.navigation(url){true}else{crate::deep_links::incoming(&link_app,url.as_str());false}})
+            .on_new_window(move|url,_|{if !crate::deep_links::incoming(&external_app,url.as_str())&&external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
             .on_document_title_changed(move|_,title|crate::desktop::title(&title_app,&title_id,&title))
             .on_page_load(move|view,payload|{if platform.navigation(payload.url()){
                 let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));

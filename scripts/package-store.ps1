@@ -43,7 +43,7 @@ $manifest=@"
  <Applications>
   <Application Id="App" Executable="appterisk-messenger.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
    <uap:VisualElements DisplayName="Appterisk Messenger" Description="Independent messaging accounts in one desktop application." Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" BackgroundColor="transparent" />
-   <Extensions><uap:Extension Category="windows.protocol"><uap:Protocol Name="appterisk"><uap:DisplayName>Appterisk Messenger</uap:DisplayName></uap:Protocol></uap:Extension></Extensions>
+   <Extensions><uap:Extension Category="windows.protocol"><uap:Protocol Name="appterisk"><uap:DisplayName>Appterisk Messenger</uap:DisplayName></uap:Protocol></uap:Extension><uap:Extension Category="windows.protocol"><uap:Protocol Name="tg"><uap:DisplayName>Appterisk Messenger</uap:DisplayName></uap:Protocol></uap:Extension><uap:Extension Category="windows.protocol"><uap:Protocol Name="whatsapp"><uap:DisplayName>Appterisk Messenger</uap:DisplayName></uap:Protocol></uap:Extension></Extensions>
   </Application>
  </Applications>
  <Capabilities><rescap:Capability Name="runFullTrust"/><rescap:Capability Name="unvirtualizedResources"/></Capabilities>

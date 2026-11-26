@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.5 - Windows messaging links
+
+- Added common WhatsApp and Telegram chat-link handling with an explicit account chooser and in-app paste entry.
+- Registered Windows protocol-handler candidates without replacing the user's default apps; added Store protocol declarations.
+- Added strict link validation, memory-only pending destinations, app-lock checks and native cold/warm routing regression coverage.
+- External-browser handoff after Windows default selection and real authenticated chat resolution require manual verification.
+
 ## 0.5.4 - macOS WhatsApp linking
 
 - Use a standard Safari-compatible identity without the Appterisk product suffix, configured before the first account request.

@@ -292,6 +292,9 @@ pub fn selected(app: &tauri::AppHandle, id: &str) {
     emit(app);
 }
 pub fn second_instance(app: &tauri::AppHandle, args: Vec<String>) {
+    if args.iter().any(|a| crate::deep_links::incoming(app, a)) {
+        return;
+    }
     if let Some((id, ticket)) = args.iter().find_map(|a| desktop_policy::activation(a)) {
         activate(app, &id, Some(&ticket));
     } else {

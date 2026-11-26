@@ -29,6 +29,53 @@ pub fn register(_: &tauri::AppHandle) -> Result<(), String> {
     command
         .set_value("", &format!("\"{}\" \"%1\"", exe.display()))
         .map_err(|_| "Protocol registration failed")?;
+    // Register candidates, not the user's default. Never overwrite tg/whatsapp
+    // scheme keys or Windows UserChoice; the user selects the handler in Settings.
+    let capability_path = "Software\\Appterisk Messenger\\Capabilities";
+    let capabilities = hkcu
+        .create_subkey(capability_path)
+        .map_err(|_| "Link registration failed")?
+        .0;
+    capabilities
+        .set_value("ApplicationName", &"Appterisk Messenger")
+        .map_err(|_| "Link registration failed")?;
+    capabilities
+        .set_value(
+            "ApplicationDescription",
+            &"Open messaging links using an Appterisk account",
+        )
+        .map_err(|_| "Link registration failed")?;
+    let associations = capabilities
+        .create_subkey("URLAssociations")
+        .map_err(|_| "Link registration failed")?
+        .0;
+    for scheme in ["tg", "whatsapp"] {
+        let prog_id = format!("Appterisk.Messenger.{scheme}");
+        let handler = hkcu
+            .create_subkey(format!("Software\\Classes\\{prog_id}"))
+            .map_err(|_| "Link registration failed")?
+            .0;
+        handler
+            .set_value("", &"Appterisk Messenger link")
+            .map_err(|_| "Link registration failed")?;
+        handler
+            .set_value("URL Protocol", &"")
+            .map_err(|_| "Link registration failed")?;
+        handler
+            .create_subkey("shell\\open\\command")
+            .map_err(|_| "Link registration failed")?
+            .0
+            .set_value("", &format!("\"{}\" \"%1\"", exe.display()))
+            .map_err(|_| "Link registration failed")?;
+        associations
+            .set_value(scheme, &prog_id)
+            .map_err(|_| "Link registration failed")?;
+    }
+    hkcu.create_subkey("Software\\RegisteredApplications")
+        .map_err(|_| "Link registration failed")?
+        .0
+        .set_value("Appterisk Messenger", &capability_path)
+        .map_err(|_| "Link registration failed")?;
     Ok(())
 }
 pub fn startup(_: &tauri::AppHandle, enabled: bool) -> Result<(), String> {

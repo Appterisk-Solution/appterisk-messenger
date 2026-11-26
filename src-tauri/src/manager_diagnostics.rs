@@ -44,13 +44,17 @@ fn ready(view: &Webview, origin: &str) -> Result<()> {
 fn remote_denial(view: &Webview, origin: &str) -> Result<Value> {
     evaluate(
         view,
-        r#"window.__appteriskIpcDiagnostic=null;void(async()=>{const out={origin:location.origin};for(const command of ['account_snapshot','account_add','restart_mode','reload_probe','desktop_snapshot','desktop_save','desktop_unlock','desktop_password','desktop_permission','desktop_permission_reply','update_snapshot','update_preferences','update_check','update_download','update_cancel','update_install']){if(!window.__TAURI_INTERNALS__?.invoke){out[command]='no-bridge';continue;}try{await window.__TAURI_INTERNALS__.invoke(command,{});out[command]='ACCEPTED';}catch(e){out[command]=/forbidden|not allowed|denied/i.test(String(e))?'denied':'unexpected-error';}}window.__appteriskIpcDiagnostic=out;})();true"#,
+        r#"window.__appteriskIpcDiagnostic=null;void(async()=>{const out={origin:location.origin};for(const command of ['chat_link_pending','chat_link_submit','chat_link_open','chat_link_defaults','account_snapshot','account_add','restart_mode','reload_probe','desktop_snapshot','desktop_save','desktop_unlock','desktop_password','desktop_permission','desktop_permission_reply','update_snapshot','update_preferences','update_check','update_download','update_cancel','update_install']){if(!window.__TAURI_INTERNALS__?.invoke){out[command]='no-bridge';continue;}try{await window.__TAURI_INTERNALS__.invoke(command,{});out[command]='ACCEPTED';}catch(e){out[command]=/forbidden|not allowed|denied/i.test(String(e))?'denied':'unexpected-error';}}window.__appteriskIpcDiagnostic=out;})();true"#,
     )?;
     for _ in 0..100 {
         let result = evaluate(view, "window.__appteriskIpcDiagnostic ?? null")?;
         if !result.is_null() {
             if result["origin"] != origin
                 || [
+                    "chat_link_pending",
+                    "chat_link_submit",
+                    "chat_link_open",
+                    "chat_link_defaults",
                     "account_snapshot",
                     "account_add",
                     "restart_mode",
@@ -88,7 +92,7 @@ pub fn start(app: &tauri::AppHandle) -> std::result::Result<(), Box<dyn std::err
     let run = args.get(index + 2).ok_or("Missing run ID")?.clone();
     if !matches!(
         stage.as_str(),
-        "seed" | "verify" | "remove" | "telegram-first-load"
+        "seed" | "verify" | "remove" | "telegram-first-load" | "chat-links"
     ) || uuid::Uuid::parse_str(&run).is_err()
     {
         return Err("Invalid manager diagnostic arguments".into());
@@ -114,6 +118,9 @@ pub fn start(app: &tauri::AppHandle) -> std::result::Result<(), Box<dyn std::err
     Ok(())
 }
 async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
+    if stage == "chat-links" {
+        return link_checks(app).await;
+    }
     let state = app.state::<accounts::AccountState>();
     let mut r = state.0.lock().await;
     if stage == "telegram-first-load" {
@@ -328,5 +335,108 @@ async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
     // Exercise the same centralized close path as X/Exit. RunEvent waits for acknowledgments.
     Ok(
         json!({"passed":true,"stage":stage,"account_ids":ids,"remote_origin_ipc":remote_results,"single_visible_view":true,"switch_without_reload":true,"dialog_hidden":true,"native_resize":true,"adoption_in_place":true,"lock_hides_native_views":true,"locked_command_rejected":true,"password_unlock_restores_account":true,"scope":"Disposable profiles only. No real login, notification or media claims."}),
+    )
+}
+
+async fn link_checks(app: &tauri::AppHandle) -> Result<Value> {
+    use crate::deep_links;
+    let caller = app.get_webview("main").ok_or("Missing trusted shell")?;
+    ready(&caller, "http://tauri.localhost")?;
+    let cold = deep_links::chat_link_pending(app.clone(), caller.clone())?
+        .ok_or("Cold-start link was lost")?;
+    // Metadata sent to the shell deliberately excludes the destination URL.
+    let cold = serde_json::to_value(cold).map_err(|_| "Cannot encode pending metadata")?;
+    if cold["platform"] != "telegram" || cold.as_object().is_none_or(|o| o.len() != 2) {
+        return Err("Unexpected pending link metadata".into());
+    }
+    let bounds = Bounds {
+        x: 90.0,
+        y: 90.0,
+        width: 850.0,
+        height: 600.0,
+    };
+    let state = app.state::<accounts::AccountState>();
+    let (tg, wa) = {
+        let mut r = state.0.lock().await;
+        (
+            r.db.add_platform("Link Telegram fixture", None, "telegram")?,
+            r.db.add("Link WhatsApp fixture", None)?,
+        )
+    };
+    crate::desktop::sync(app, &*state.0.lock().await)?;
+    let request_id = cold["id"].as_str().ok_or("Missing request ID")?.to_string();
+    if deep_links::chat_link_open(
+        app.clone(),
+        caller.clone(),
+        request_id.clone(),
+        Some(wa.id.clone()),
+        bounds,
+    )
+    .await
+    .is_ok()
+    {
+        return Err("Wrong-platform account accepted a link".into());
+    }
+    deep_links::chat_link_open(
+        app.clone(),
+        caller.clone(),
+        request_id.clone(),
+        Some(tg.id.clone()),
+        bounds,
+    )
+    .await?;
+    let view = app
+        .get_webview(&accounts::label(&tg.id))
+        .ok_or("No Telegram view")?;
+    ready(&view, "https://web.telegram.org")?;
+    let url = view
+        .url()
+        .map_err(|_| "Cannot inspect public fixture URL")?;
+    // Telegram consumes the tgaddr fragment during startup; it need not remain in the address.
+    if url.origin().ascii_serialization() != "https://web.telegram.org" || url.path() != "/a/" {
+        return Err("Link was not routed into the pinned official Telegram client".into());
+    }
+    let remote = remote_denial(&view, "https://web.telegram.org")?;
+    if remote["chat_link_open"] != "denied" && remote["chat_link_open"] != "no-bridge" {
+        return Err("Remote page could invoke link commands".into());
+    }
+    crate::desktop::second_instance(app, vec!["tg://resolve?domain=telegram".into()]);
+    let warm = serde_json::to_value(
+        deep_links::chat_link_pending(app.clone(), caller.clone())?.ok_or("Warm link lost")?,
+    )
+    .map_err(|_| "Cannot encode pending metadata")?;
+    if deep_links::chat_link_open(app.clone(), caller.clone(), request_id, None, bounds)
+        .await
+        .is_ok()
+    {
+        return Err("Stale request accepted".into());
+    }
+    {
+        let desktop = app.state::<crate::desktop::DesktopState>();
+        desktop.0.lock().map_err(|_| "Desktop busy")?.lock.locked = true;
+    }
+    if deep_links::chat_link_pending(app.clone(), caller.clone())?.is_some() {
+        return Err("Locked shell exposed pending link".into());
+    }
+    let warm_id = warm["id"].as_str().ok_or("No warm ID")?.to_string();
+    if deep_links::chat_link_open(
+        app.clone(),
+        caller.clone(),
+        warm_id.clone(),
+        Some(tg.id),
+        bounds,
+    )
+    .await
+    .is_ok()
+    {
+        return Err("Link bypassed lock".into());
+    }
+    {
+        let desktop = app.state::<crate::desktop::DesktopState>();
+        desktop.0.lock().map_err(|_| "Desktop busy")?.lock.locked = false;
+    }
+    deep_links::chat_link_open(app.clone(), caller, warm_id, None, bounds).await?;
+    Ok(
+        json!({"passed":true,"cold_start":true,"warm_activation":true,"official_client_navigation":true,"account_mismatch_rejected":true,"stale_request_rejected":true,"lock_enforced":true,"remote_ipc_denied":true}),
     )
 }

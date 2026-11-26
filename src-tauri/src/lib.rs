@@ -1,6 +1,7 @@
 mod accounts;
 mod app_lock;
 mod database;
+mod deep_links;
 mod desktop;
 #[cfg(all(debug_assertions, target_os = "windows"))]
 mod desktop_diagnostics;
@@ -53,6 +54,7 @@ pub fn run() {
     builder
         .plugin(tauri_plugin_dialog::init())
         .manage(probe::ProbeState::default())
+        .manage(deep_links::LinkState::from_args())
         .setup(|_app| {
             health::startup(_app.handle());
             let mut root =
@@ -96,6 +98,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            deep_links::chat_link_pending,
+            deep_links::chat_link_submit,
+            deep_links::chat_link_open,
+            deep_links::chat_link_defaults,
             probe::open_probe,
             probe::set_probe_bounds,
             probe::set_probe_visibility,
