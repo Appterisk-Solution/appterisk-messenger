@@ -6,6 +6,7 @@ window.runFixture = async () => {
   const index = Number(params.get('index')), phase = Number(params.get('phase'));
   const expected = `store-${index}`, key = 'same-key';
   const checks = {};
+  checks.firstRequestIdentity = __REQUEST_IDENTITY_MATCH__;
   try {
     const request = indexedDB.open('macos-isolation', 1);
     request.onupgradeneeded = () => request.result.createObjectStore('values');
@@ -29,12 +30,27 @@ window.runFixture = async () => {
         tx.oncomplete = resolve; tx.onerror = () => reject(new Error('indexeddb-write'));
       });
       await cache.put('/same-key', new Response(expected));
+      // Synthetic, nonextractable key only. Never export it or use provider data.
+      const syntheticKey = await crypto.subtle.generateKey({name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await crypto.subtle.encrypt({name:'AES-GCM',iv}, syntheticKey, new TextEncoder().encode(expected));
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction('values','readwrite');
+        tx.objectStore('values').put({key:syntheticKey,iv,ciphertext},'synthetic-crypto');
+        tx.oncomplete=resolve; tx.onerror=()=>reject(new Error('crypto-storage'));
+      });
     }
     checks.localStorage = localStorage.getItem(key) === expected;
     checks.cookie = document.cookie.split('; ').includes(`same-key=${expected}`);
     const item = await read();
     checks.indexedDB = item?.value === expected;
     checks.blob = item?.blob && await item.blob.text() === expected;
+    const encrypted = await new Promise((resolve,reject)=>{
+      const r=db.transaction('values').objectStore('values').get('synthetic-crypto');
+      r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(new Error('crypto-read'));
+    });
+    const decoded = await crypto.subtle.decrypt({name:'AES-GCM',iv:encrypted.iv}, encrypted.key, encrypted.ciphertext);
+    checks.nonextractableCryptoKey = encrypted.key.extractable === false && new TextDecoder().decode(decoded) === expected;
     checks.cache = await (await cache.match('/same-key'))?.text() === expected;
     if (phase > 0) checks.serviceWorkerPersisted = !!(await navigator.serviceWorker.getRegistration('/'))?.active;
     const worker = await navigator.serviceWorker.register('/worker.js');
@@ -48,8 +64,9 @@ window.runFixture = async () => {
     } catch { checks.remoteIPC = true; }
     db.close();
     document.title = 'FIXTURE:' + JSON.stringify({index, phase, checks, pass: Object.values(checks).every(v => v === true)});
-  } catch {
-    document.title = 'FIXTURE:' + JSON.stringify({index, phase, checks, pass: false});
+  } catch (error) {
+    const errorKind = ['ReferenceError','TypeError','DataCloneError','SecurityError','OperationError','UnknownError','NotSupportedError'].includes(error?.name) ? error.name : 'FixtureError';
+    document.title = 'FIXTURE:' + JSON.stringify({index, phase, checks, errorKind, pass: false});
   }
 };
 </script>

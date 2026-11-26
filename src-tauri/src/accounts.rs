@@ -427,25 +427,45 @@ pub async fn initialize(
                 json!({"profile_id":id,"entry_url":entry_url}),
             );
         }
-        let initial_url = if cfg!(target_os = "macos") && platform.id == "whatsapp" {
-            WebviewUrl::App("account-start.html".into())
+        #[cfg(target_os = "macos")]
+        let identity = if platform.id == "whatsapp" {
+            Some(
+                crate::macos_profiles::whatsapp_identity(
+                    &app.get_webview("main").ok_or("Main shell unavailable.")?,
+                )
+                .await?,
+            )
         } else {
-            WebviewUrl::External(entry_url.parse().map_err(|_| "Invalid provider URL.")?)
+            None
         };
-        let builder=WebviewBuilder::new(&name,initial_url)
+        #[cfg(target_os = "macos")]
+        let compatibility_logging = std::env::args().any(|arg| arg == "--macos-compatibility-log");
+        let builder=WebviewBuilder::new(&name,WebviewUrl::External(entry_url.parse().map_err(|_|"Invalid provider URL.")?))
             .incognito(false).devtools(false).disable_drag_drop_handler()
-            .on_navigation(move |url| {
-                if platform.navigation(url) { return true; }
-                #[cfg(target_os = "macos")]
-                { platform.id == "whatsapp" && crate::macos_profiles::startup_url(url) }
-                #[cfg(not(target_os = "macos"))]
-                { false }
-            })
+            .on_navigation(move |url| platform.navigation(url))
             .on_new_window(move|url,_|{if external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
             .on_document_title_changed(move|_,title|crate::desktop::title(&title_app,&title_id,&title))
-            .on_page_load(move|_,payload|{if platform.navigation(payload.url()){let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));}});
+            .on_page_load(move|view,payload|{if platform.navigation(payload.url()){
+                let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));
+                #[cfg(target_os = "macos")]
+                if compatibility_logging && matches!(payload.event(),tauri::webview::PageLoadEvent::Finished){crate::macos_profiles::observe_capabilities(&view,&event_id);}
+                #[cfg(not(target_os = "macos"))]
+                let _=view;
+            }});
+        #[cfg(target_os = "macos")]
+        let builder = if compatibility_logging {
+            builder.initialization_script(include_str!("../diagnostics/macos-capabilities.js"))
+        } else {
+            builder
+        };
         #[cfg(not(target_os = "macos"))]
         let builder = builder.data_directory(browser_path.clone());
+        #[cfg(target_os = "macos")]
+        let builder = if let Some(identity) = &identity {
+            builder.user_agent(identity)
+        } else {
+            builder
+        };
         #[cfg(target_os = "macos")]
         let builder = crate::macos_profiles::configure(builder, id)?
             // Native media permissions and managed downloads need separate Mac adapters.
@@ -468,13 +488,16 @@ pub async fn initialize(
             return Err(error);
         }
         #[cfg(target_os = "macos")]
-        if platform.id == "whatsapp" {
-            if let Err(error) = crate::macos_profiles::prepare_whatsapp(&view).await {
+        if let Some(identity) = identity {
+            if let Err(error) = crate::macos_profiles::verify_identity(&view, &identity).await {
                 let _ = view.close();
                 return Err(error);
             }
-            view.navigate(entry_url.parse().map_err(|_| "Invalid provider URL.")?)
-                .map_err(|_| "Could not open WhatsApp.")?;
+            health::log(
+                app,
+                "macos_browser_identity",
+                json!({"profile_id":id,"user_agent":identity,"app_version":env!("CARGO_PKG_VERSION"),"configured_before_creation":true,"native_verified":true}),
+            );
         }
         #[cfg(windows)]
         match crate::windows_profiles::attach(app, &view, id, &canonical) {

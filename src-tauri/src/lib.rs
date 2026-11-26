@@ -73,6 +73,12 @@ pub fn run() {
             _app.manage(accounts::AccountState::open(root).map_err(std::io::Error::other)?);
             desktop::setup(_app.handle()).map_err(std::io::Error::other)?;
             updater::setup(_app.handle()).map_err(std::io::Error::other)?;
+            #[cfg(target_os = "macos")]
+            if std::env::args().any(|arg| arg == "--macos-compatibility-log") {
+                if let Some(window) = _app.get_window("main") {
+                    window.set_title("Appterisk Messenger — compatibility diagnostics")?;
+                }
+            }
             if accounts::synthetic_mode()
                 && std::env::args().any(|a| a == "--ui-diagnostic")
                 && let Some(w) = _app.get_window("main")

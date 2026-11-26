@@ -15,7 +15,7 @@ async fn compatibility_metadata(view: &tauri::Webview) -> Result<Value, String> 
     let tx = Mutex::new(Some(tx));
     // This is only used with a new, unlinked diagnostic account. Return flags,
     // never page text, QR codes, cookies or authentication values.
-    view.eval_with_callback(r#"JSON.stringify({userAgent:navigator.userAgent,unsupported:/WhatsApp works with Safari|update Safari/i.test(document.body?.innerText??''),loginPrompt:/scan to log in|log in with phone number/i.test(document.body?.innerText??'')})"#, move |value| {
+    view.eval_with_callback(r#"JSON.stringify({userAgent:navigator.userAgent,unsupported:/WhatsApp works with Safari|update Safari/i.test(document.body?.innerText??''),loginPrompt:/scan to log in|log in with phone number/i.test(document.body?.innerText??''),qrCanvas:!!document.querySelector('canvas'),crypto:!!globalThis.crypto?.subtle,wasm:typeof WebAssembly==='object',serviceWorkers:'serviceWorker' in navigator})"#, move |value| {
         if let Some(tx) = tx.lock().unwrap().take() { let _ = tx.send(value); }
     }).map_err(|e| e.to_string())?;
     let encoded = tokio::time::timeout(Duration::from_secs(5), rx)
@@ -46,6 +46,8 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     }
     // Same loopback origin in every store and every process restart.
     let server = std::net::TcpListener::bind("127.0.0.1:18765")?;
+    let expected_identity = Arc::new(Mutex::new(String::new()));
+    let server_identity = expected_identity.clone();
     std::thread::spawn(move || {
         for mut stream in server.incoming().flatten() {
             let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
@@ -53,7 +55,15 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             let Ok(n) = stream.read(&mut buffer) else {
                 continue;
             };
-            let worker = String::from_utf8_lossy(&buffer[..n]).starts_with("GET /worker.js ");
+            let request = String::from_utf8_lossy(&buffer[..n]);
+            let worker = request.starts_with("GET /worker.js ");
+            let identity_matches = request
+                .lines()
+                .find(|line| line.to_ascii_lowercase().starts_with("user-agent:"))
+                .is_some_and(|line| {
+                    line.split_once(':')
+                        .is_some_and(|(_, value)| value.trim() == *server_identity.lock().unwrap())
+                });
             let (mime, body) = if worker {
                 (
                     "application/javascript",
@@ -65,6 +75,10 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     include_str!("../diagnostics/macos-isolation.html"),
                 )
             };
+            let body = body.replace(
+                "__REQUEST_IDENTITY_MATCH__",
+                if identity_matches { "true" } else { "false" },
+            );
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{body}",
                 body.len()
@@ -80,6 +94,11 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let result: Result<(), String> = async {
+            let fixture_identity = crate::macos_profiles::whatsapp_identity(
+                &handle.get_webview("main").ok_or("Main shell unavailable")?,
+            )
+            .await?;
+            *expected_identity.lock().unwrap() = fixture_identity.clone();
             // Exercise the production account initializer against an empty, unlinked profile.
             // This database is under diagnostic-runs/<run>/manager, never the owner's database.
             {
@@ -153,7 +172,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     report.join("geometry.json"),
                     json!({"pass":true,"sizes":measurements}).to_string(),
                 );
-                if phase == 0 && provider_smoke {
+                if provider_smoke {
                     let view = handle
                         .get_webview(&crate::accounts::label(&account.id))
                         .unwrap();
@@ -168,7 +187,7 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                             Err(error) => return Err(error),
                         };
                         if metadata["loginPrompt"] == true {
-                            tokio::time::sleep(Duration::from_secs(3)).await;
+                            tokio::time::sleep(Duration::from_secs(30)).await;
                             metadata = compatibility_metadata(&view).await?;
                         }
                         if metadata["loginPrompt"] == true
@@ -180,7 +199,10 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                                 metadata.to_string(),
                             )
                             .map_err(|e| e.to_string())?;
-                            if metadata["unsupported"] == true || metadata["loginPrompt"] != true {
+                            if metadata["unsupported"] == true
+                                || metadata["loginPrompt"] != true
+                                || metadata["qrCanvas"] != true
+                            {
                                 return Err(
                                     "WhatsApp did not reach its unlinked login screen".into()
                                 );
@@ -255,7 +277,8 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         crate::probe::request_shutdown(&app, if pass { 0 } else { 1 });
                     });
                 });
-                let builder = crate::macos_profiles::configure(builder, &id)?;
+                let builder =
+                    crate::macos_profiles::configure(builder.user_agent(&fixture_identity), &id)?;
                 handle
                     .get_window("main")
                     .ok_or("Missing window")?

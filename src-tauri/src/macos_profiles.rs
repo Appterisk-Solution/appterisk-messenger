@@ -1,23 +1,8 @@
 //! Persistent WKWebView stores. Never allow Wry's pre-macOS-14 shared-store fallback.
-use objc2_foundation::{NSProcessInfo, NSString};
+use objc2_foundation::NSProcessInfo;
 use objc2_web_kit::WKWebView;
 use tauri::Manager;
 use tauri::{Webview, webview::WebviewBuilder};
-
-pub fn startup_url(url: &tauri::Url) -> bool {
-    url.username().is_empty()
-        && url.password().is_none()
-        && url.query().is_none()
-        && url.fragment().is_none()
-        && url.path() == "/account-start.html"
-        && ((url.scheme() == "tauri"
-            && url.host_str() == Some("localhost")
-            && url.port().is_none())
-            || (cfg!(debug_assertions)
-                && url.scheme() == "http"
-                && url.host_str() == Some("localhost")
-                && url.port() == Some(1420)))
-}
 
 /// DOM rectangles start inside WKWebView's safe content area, whereas child
 /// frames are positioned in the containing NSView. Convert between those spaces.
@@ -109,20 +94,17 @@ fn compatible_identity(native: &str, safari_version: &str) -> Result<String, Str
         .split_whitespace()
         .any(|token| token.starts_with("Version/"))
     {
-        return Ok(format!(
-            "{native} AppteriskMessenger/{}",
-            env!("CARGO_PKG_VERSION")
-        ));
+        return Ok(native.to_owned());
     }
-    Ok(format!(
-        "{native} Version/{safari_version} Safari/{engine} AppteriskMessenger/{}",
-        env!("CARGO_PKG_VERSION")
-    ))
+    Ok(format!("{native} Version/{safari_version} Safari/{engine}"))
 }
 
-/// Configure compatibility tokens while the new account is on an empty local page.
+/// Read compatibility identity from the trusted shell before constructing an account view.
 /// No provider page, cookie, authentication value or stored browser data is read.
-pub async fn prepare_whatsapp(view: &Webview) -> Result<(), String> {
+pub async fn whatsapp_identity(view: &Webview) -> Result<String, String> {
+    if view.label() != "main" {
+        return Err("Browser identity must come from the trusted shell.".into());
+    }
     let metadata = plist::Value::from_file("/Applications/Safari.app/Contents/Info.plist")
         .map_err(
             |_| "Cannot read the installed Safari version. Install Safari before opening WhatsApp.",
@@ -132,9 +114,16 @@ pub async fn prepare_whatsapp(view: &Webview) -> Result<(), String> {
         .and_then(|d| d.get("CFBundleShortVersionString"))
         .and_then(plist::Value::as_string)
         .ok_or("Installed Safari version unavailable.")?;
-    // A newly created WKWebView may still be committing its initial blank document.
+    // Startup diagnostics can run while the trusted shell is still loading.
     let start = std::time::Instant::now();
     let native = loop {
+        if crate::probe::trusted(view).is_err() {
+            if start.elapsed() > std::time::Duration::from_secs(10) {
+                return Err("Trusted shell is not ready for browser identity setup.".into());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            continue;
+        }
         let (tx, rx) = tokio::sync::oneshot::channel();
         let tx = std::sync::Mutex::new(Some(tx));
         view.eval_with_callback("navigator.userAgent", move |value| {
@@ -154,21 +143,99 @@ pub async fn prepare_whatsapp(view: &Webview) -> Result<(), String> {
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     };
-    let identity = compatible_identity(&native, version)?;
+    compatible_identity(&native, version)
+}
+
+pub async fn verify_identity(view: &Webview, expected: &str) -> Result<(), String> {
+    let expected = expected.to_owned();
     let (tx, rx) = tokio::sync::oneshot::channel();
     view.with_webview(move |native| {
-        // SAFETY: the supplied WKWebView is live and this executes on its UI thread.
-        unsafe {
+        // SAFETY: Tauri supplies a live WKWebView on its UI thread.
+        let matches = unsafe {
             (&*native.inner().cast::<WKWebView>())
-                .setCustomUserAgent(Some(&NSString::from_str(&identity)));
-        }
-        let _ = tx.send(());
+                .customUserAgent()
+                .is_some_and(|identity| identity.to_string() == expected)
+        };
+        let _ = tx.send(matches);
     })
-    .map_err(|_| "Could not set the native browser compatibility identity.")?;
-    tokio::time::timeout(std::time::Duration::from_secs(10), rx)
-        .await
-        .map_err(|_| "Browser identity setup timed out.")?
-        .map_err(|_| "Browser identity setup failed.".into())
+    .map_err(|_| "Cannot verify the native browser identity.")?;
+    match tokio::time::timeout(std::time::Duration::from_secs(10), rx).await {
+        Ok(Ok(true)) => Ok(()),
+        _ => Err("Native account browser identity verification failed.".into()),
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct CapabilitySnapshot {
+    secure: bool,
+    crypto: bool,
+    indexeddb: bool,
+    worker: bool,
+    serviceworker: bool,
+    controlled: bool,
+    notification: bool,
+    wasm: bool,
+    sharedarray: bool,
+    errors: Vec<DiagnosticKind>,
+}
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+enum DiagnosticKind {
+    Clone,
+    Quota,
+    Crypto,
+    Indexeddb,
+    Worker,
+    Notification,
+    Network,
+    Unsupported,
+    Type,
+    Other,
+}
+
+pub fn observe_capabilities(view: &Webview, id: &str) {
+    let view = view.clone();
+    let id = id.to_owned();
+    tauri::async_runtime::spawn(async move {
+        let mut previous = String::new();
+        for _ in 0..5 {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            let tx = std::sync::Mutex::new(Some(tx));
+            if view
+                .eval_with_callback(
+                    "JSON.stringify(window.__appteriskCapabilitySnapshot?.()??null)",
+                    move |value| {
+                        if let Some(tx) = tx.lock().unwrap().take() {
+                            let _ = tx.send(value);
+                        }
+                    },
+                )
+                .is_err()
+            {
+                return;
+            }
+            if let Ok(Ok(value)) = tokio::time::timeout(std::time::Duration::from_secs(2), rx).await
+            {
+                if value.len() > 4096 || value == previous {
+                    continue;
+                }
+                if let Ok(encoded) = serde_json::from_str::<String>(&value) {
+                    if let Ok(report) = serde_json::from_str::<CapabilitySnapshot>(&encoded) {
+                        if report.errors.len() <= 20 {
+                            crate::health::log(
+                                view.app_handle(),
+                                "macos_capability_snapshot",
+                                serde_json::json!({"profile_id":id,"app_version":env!("CARGO_PKG_VERSION"),"report":report}),
+                            );
+                            previous = value;
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 pub async fn verify(view: &Webview, id: &str) -> Result<(), String> {
@@ -213,25 +280,22 @@ pub async fn geometry(view: &Webview) -> serde_json::Value {
 mod tests {
     use super::*;
     #[test]
-    fn only_the_exact_empty_startup_asset_is_allowed() {
-        assert!(startup_url(
-            &"tauri://localhost/account-start.html".parse().unwrap()
-        ));
-        for url in [
-            "tauri://localhost/index.html",
-            "tauri://user@localhost/account-start.html",
-            "https://localhost/account-start.html",
-            "tauri://localhost/account-start.html?remote=true",
-        ] {
-            assert!(!startup_url(&url.parse().unwrap()));
-        }
+    fn capability_diagnostics_reject_private_text_and_unknown_categories() {
+        let flags = serde_json::json!({"secure":true,"crypto":true,"indexeddb":true,"worker":true,"serviceworker":true,"controlled":false,"notification":false,"wasm":true,"sharedarray":false,"errors":["crypto"]});
+        assert!(serde_json::from_value::<CapabilitySnapshot>(flags.clone()).is_ok());
+        let mut private = flags.clone();
+        private["message"] = serde_json::json!("must never be collected");
+        assert!(serde_json::from_value::<CapabilitySnapshot>(private).is_err());
+        let mut unknown = flags;
+        unknown["errors"] = serde_json::json!(["arbitrary private text"]);
+        assert!(serde_json::from_value::<CapabilitySnapshot>(unknown).is_err());
     }
     #[test]
     fn compatibility_preserves_native_engine_and_validates_version() {
         let native = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)";
         let ua = compatible_identity(native, "27.2").unwrap();
         assert!(ua.starts_with(native));
-        assert!(ua.contains("Version/27.2 Safari/605.1.15 AppteriskMessenger/"));
+        assert_eq!(ua, format!("{native} Version/27.2 Safari/605.1.15"));
         for version in ["", "99.fake", "27\nChrome/999", ".27", "27."] {
             assert!(compatible_identity(native, version).is_err());
         }

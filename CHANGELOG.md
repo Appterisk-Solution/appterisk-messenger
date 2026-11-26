@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.4 - macOS WhatsApp linking
+
+- Use a standard Safari-compatible identity without the Appterisk product suffix, configured before the first account request.
+- Owner confirmed that scanning the QR opens chats and completes linking on macOS 27.2.1 arm64. Linked-session persistence across restarts remains pending.
+- Extend native storage checks to nonextractable AES-GCM keys across restarts and add opt-in capability diagnostics that record only booleans and fixed error categories.
+
+## 0.5.3 - macOS browser initialization
+
+- Set WhatsApp's native compatibility identity in the WebView builder before the first navigation; verify the resulting native setting.
+- Read the base identity from the trusted shell instead of starting each account on a local page and changing its identity afterward.
+- Add first-request HTTP identity checks to the native fixture and require an actual QR canvas after a 30-second wait in the optional live provider check.
+- A foreground reload restored the existing Personal account's QR screen through three full quits/reopens, but owner testing found that scanning the QR still fails with the Safari compatibility warning. WhatsApp linking remains unverified/failed; login-screen tests do not establish authentication support.
+
 ## 0.5.2 - experimental macOS support
 
 - Added native macOS 14+ account views with persistent WKWebView stores keyed by account UUID and verified native storage isolation.
