@@ -408,7 +408,19 @@ pub async fn initialize(
         let title_app = app.clone();
         let title_id = id.to_string();
         let external_app = app.clone();
-        let builder=WebviewBuilder::new(&name,WebviewUrl::External(platform.entry_url.parse().map_err(|_|"Invalid provider URL.")?))
+        let entry_url = if platform.id == "telegram" {
+            crate::telegram_client::entry_url(&canonical)?
+        } else {
+            platform.entry_url
+        };
+        if platform.id == "telegram" {
+            health::log(
+                app,
+                "telegram_client_selected",
+                json!({"profile_id":id,"entry_url":entry_url}),
+            );
+        }
+        let builder=WebviewBuilder::new(&name,WebviewUrl::External(entry_url.parse().map_err(|_|"Invalid provider URL.")?))
             .data_directory(browser_path.clone()).incognito(false).devtools(false).disable_drag_drop_handler()
             .on_navigation(move |url| platform.navigation(url))
             .on_new_window(move|url,_|{if external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})

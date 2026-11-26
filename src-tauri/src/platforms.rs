@@ -27,7 +27,7 @@ pub const REGISTRY: &[Platform] = &[
     Platform {
         id: "telegram",
         name: "Telegram",
-        entry_url: "https://web.telegram.org/k/",
+        entry_url: "https://web.telegram.org/a/",
         origin: "https://web.telegram.org",
         symbol: "TG",
         status: "experimental",

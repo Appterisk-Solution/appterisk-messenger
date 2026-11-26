@@ -86,8 +86,10 @@ pub fn start(app: &tauri::AppHandle) -> std::result::Result<(), Box<dyn std::err
     };
     let stage = args.get(index + 1).ok_or("Missing manager stage")?.clone();
     let run = args.get(index + 2).ok_or("Missing run ID")?.clone();
-    if !matches!(stage.as_str(), "seed" | "verify" | "remove")
-        || uuid::Uuid::parse_str(&run).is_err()
+    if !matches!(
+        stage.as_str(),
+        "seed" | "verify" | "remove" | "telegram-first-load"
+    ) || uuid::Uuid::parse_str(&run).is_err()
     {
         return Err("Invalid manager diagnostic arguments".into());
     }
@@ -114,6 +116,48 @@ pub fn start(app: &tauri::AppHandle) -> std::result::Result<(), Box<dyn std::err
 async fn execute(app: &tauri::AppHandle, stage: &str) -> Result<Value> {
     let state = app.state::<accounts::AccountState>();
     let mut r = state.0.lock().await;
+    if stage == "telegram-first-load" {
+        let account = match r.db.accounts()?.into_iter().next() {
+            Some(account) => account,
+            None => {
+                r.db.add_platform("Fresh Telegram fixture", None, "telegram")?
+            }
+        };
+        let bounds = Bounds {
+            x: 90.0,
+            y: 90.0,
+            width: 850.0,
+            height: 600.0,
+        };
+        accounts::switch(app, &mut r, &account.id, bounds).await?;
+        let view = app
+            .get_webview(&accounts::label(&account.id))
+            .ok_or("Missing Telegram view")?;
+        ready(&view, "https://web.telegram.org")?;
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(40) {
+            if evaluate(
+                &view,
+                "Array.from(document.querySelectorAll('input,button,canvas')).some(e=>e.getBoundingClientRect().width>0 && e.getBoundingClientRect().height>0)",
+            )? == true
+            {
+                evaluate(&view, "window.__appteriskTelegramReuse=true;true")?;
+                accounts::switch(app, &mut r, &account.id, bounds).await?;
+                if evaluate(&view, "window.__appteriskTelegramReuse===true")? != true {
+                    return Err("Telegram selection reloaded the document".into());
+                }
+                return Ok(
+                    json!({"passed":true,"telegram_first_load_rendered":true,"reload":false,"account_id":account.id}),
+                );
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        let metadata = evaluate(
+            &view,
+            "({ready:document.readyState,bodyChildren:document.body?.children.length,visibility:document.visibilityState})",
+        )?;
+        return Err(format!("Telegram first load remained blank: {metadata}"));
+    }
     let manifest = r.root.join("expected-ids.json");
     if stage == "seed" {
         let legacy = r
