@@ -26,10 +26,11 @@ function status(value:string){return t(({idle:'Ready to check',checking:'Checkin
   <section><p class="eyebrow">{{t('APPLICATION UPDATES')}}</p><h3>{{t('Updates')}}</h3>
     <p v-if="data?.store_managed" class="section-description">{{t("Updates are managed by Microsoft Store. Open the Store Library to check for updates.")}}</p>
     <p v-if="data?.store_managed">{{t('Current version')}}: {{accounts.data?.version}}</p>
+    <p v-else-if="accounts.data?.macos" class="field-help">Automatic updates are unavailable on macOS. Install a new application bundle manually.</p>
     <template v-else>
     <p class="section-description">{{t('Updates preserve your accounts and require confirmation before installation.')}}</p>
     <dl class="about-details"><dt>{{t('Current version')}}</dt><dd>{{accounts.data?.version}}</dd><dt>WebView2 Evergreen</dt><dd>{{accounts.data?.runtime_version??t('Not available')}}</dd><dt>{{t('Latest available version')}}</dt><dd>{{data?.version??t('Not available')}}</dd><dt>{{t('Last update check')}}</dt><dd>{{data?.last_check?new Date(data.last_check*1000).toLocaleString():t('Never')}}</dd></dl>
-    <p v-if="data&&!data.configured" class="field-help">{{t('This build has no configured update signing key. Messaging remains available.')}}</p>
+    <p v-if="data&&!data.configured&&!accounts.data?.macos" class="field-help">{{t('This build has no configured update signing key. Messaging remains available.')}}</p>
     <p v-if="data&&!data.install_supported" class="field-help">{{t('Automatic installation is currently available for Windows x64 NSIS installations only.')}}</p>
     <label class="field-label" for="update-channel">{{t('Release channel')}}</label><select id="update-channel" v-model="channel" :disabled="working"><option value="stable">{{t('Stable')}}</option><option value="beta">{{t('Beta')}}</option></select>
     <p v-if="channel==='beta'" class="field-help">{{t('Beta builds are experimental. Returning to Stable never installs an older version.')}}</p>

@@ -139,7 +139,7 @@ pub fn setup(app: &tauri::AppHandle) -> Result<()> {
                         last_input = input;
                         d.lock.last_activity = Instant::now();
                     }
-                    d.lock.should_lock(d.config.lock_timeout_seconds)
+                    cfg!(windows) && d.lock.should_lock(d.config.lock_timeout_seconds)
                 };
                 if should_lock {
                     let app = app.clone();

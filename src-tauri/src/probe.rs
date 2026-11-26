@@ -37,12 +37,7 @@ pub(crate) fn trusted(caller: &Webview) -> Result<()> {
     let url = caller
         .url()
         .map_err(|_| err("FORBIDDEN", "Cannot verify caller."))?;
-    let local = (url.scheme() == "tauri" && url.host_str() == Some("localhost"))
-        || (matches!(url.scheme(), "http" | "https") && url.host_str() == Some("tauri.localhost"))
-        || (cfg!(debug_assertions)
-            && url.scheme() == "http"
-            && url.host_str() == Some("localhost")
-            && url.port() == Some(1420));
+    let local = trusted_origin(&url);
     if caller.label() != "main" || !local {
         return Err(err(
             "FORBIDDEN",
@@ -50,6 +45,20 @@ pub(crate) fn trusted(caller: &Webview) -> Result<()> {
         ));
     }
     Ok(())
+}
+fn trusted_origin(url: &tauri::Url) -> bool {
+    if !url.username().is_empty() || url.password().is_some() {
+        return false;
+    }
+    ((url.scheme() == "tauri" && url.host_str() == Some("localhost") && url.port().is_none())
+        || (!cfg!(target_os = "macos")
+            && matches!(url.scheme(), "http" | "https")
+            && url.host_str() == Some("tauri.localhost"))
+            && url.port().is_none())
+        || (cfg!(debug_assertions)
+            && url.scheme() == "http"
+            && url.host_str() == Some("localhost")
+            && url.port() == Some(1420))
 }
 #[derive(Clone, Copy, Deserialize)]
 pub struct Bounds {
@@ -151,7 +160,7 @@ pub fn request_shutdown(app: &tauri::AppHandle, exit_code: i32) {
         health::log(
             &app,
             "shutdown_complete",
-            json!({"cleanup":false,"browser_processes_exited":true}),
+            json!({"cleanup":false,"browser_processes_exited":if cfg!(windows) { Some(true) } else { None }}),
         );
         health::SHUTDOWN_FINISHED.store(true, Ordering::SeqCst);
         let mode = crate::accounts::RESTART_MODE.swap(0, Ordering::SeqCst);
@@ -533,6 +542,21 @@ pub async fn prepare_shutdown(app: &tauri::AppHandle) -> std::result::Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn shell_origin_rejects_remote_and_lookalike_origins() {
+        assert!(trusted_origin(
+            &"tauri://localhost/index.html".parse().unwrap()
+        ));
+        for origin in [
+            "https://web.whatsapp.com/",
+            "tauri://localhost.evil/",
+            "tauri://user@localhost/",
+            "tauri://localhost:1234/",
+            "http://tauri.localhost:1234/",
+        ] {
+            assert!(!trusted_origin(&origin.parse().unwrap()));
+        }
+    }
     #[test]
     fn metadata_rejects_private_values_and_arbitrary_fields() {
         assert!(

@@ -1,0 +1,55 @@
+<!doctype html><meta charset="utf-8"><title>Storage fixture</title>
+<script>
+// Disposable synthetic values only. This page never loads a messaging provider.
+window.runFixture = async () => {
+  const params = new URLSearchParams(location.search);
+  const index = Number(params.get('index')), phase = Number(params.get('phase'));
+  const expected = `store-${index}`, key = 'same-key';
+  const checks = {};
+  try {
+    const request = indexedDB.open('macos-isolation', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('values');
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(new Error('indexeddb-open'));
+    });
+    const read = () => new Promise((resolve, reject) => {
+      const r = db.transaction('values').objectStore('values').get(key);
+      r.onsuccess = () => resolve(r.result); r.onerror = () => reject(new Error('indexeddb-read'));
+    });
+    const cache = await caches.open('macos-isolation');
+    if (phase === 0) {
+      checks.initiallyEmpty = localStorage.getItem(key) === null && !document.cookie.includes('same-key=') && (await read()) === undefined && !(await cache.match('/same-key'));
+      if (!checks.initiallyEmpty) throw new Error('unexpected-existing-store');
+      localStorage.setItem(key, expected);
+      document.cookie = `same-key=${expected}; Max-Age=31536000; Path=/; SameSite=Strict`;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('values', 'readwrite');
+        tx.objectStore('values').put({value: expected, blob: new Blob([expected])}, key);
+        tx.oncomplete = resolve; tx.onerror = () => reject(new Error('indexeddb-write'));
+      });
+      await cache.put('/same-key', new Response(expected));
+    }
+    checks.localStorage = localStorage.getItem(key) === expected;
+    checks.cookie = document.cookie.split('; ').includes(`same-key=${expected}`);
+    const item = await read();
+    checks.indexedDB = item?.value === expected;
+    checks.blob = item?.blob && await item.blob.text() === expected;
+    checks.cache = await (await cache.match('/same-key'))?.text() === expected;
+    if (phase > 0) checks.serviceWorkerPersisted = !!(await navigator.serviceWorker.getRegistration('/'))?.active;
+    const worker = await navigator.serviceWorker.register('/worker.js');
+    await navigator.serviceWorker.ready;
+    checks.serviceWorker = !!worker.active;
+    try {
+      if (window.__TAURI_INTERNALS__?.invoke) {
+        await window.__TAURI_INTERNALS__.invoke('account_snapshot');
+        checks.remoteIPC = false;
+      } else checks.remoteIPC = true;
+    } catch { checks.remoteIPC = true; }
+    db.close();
+    document.title = 'FIXTURE:' + JSON.stringify({index, phase, checks, pass: Object.values(checks).every(v => v === true)});
+  } catch {
+    document.title = 'FIXTURE:' + JSON.stringify({index, phase, checks, pass: false});
+  }
+};
+</script>

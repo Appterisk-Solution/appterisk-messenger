@@ -73,10 +73,10 @@ function keydown(e:KeyboardEvent){
     if(e.key==='Tab'){const items=Array.from(dialogElement.value?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex="0"]')??[]);const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}
     return;
   }
-  if(e.ctrlKey&&(e.key==='Tab'||e.key==='next'||e.key==='previous')){e.preventDefault();cycle(e.shiftKey||e.key==='previous');}
-  if(e.ctrlKey&&e.key===','){e.preventDefault();void openModal('settings');}
-  if(e.ctrlKey&&e.key.toLowerCase()==='r'){e.preventDefault();void reload();}
-  if(e.ctrlKey&&/^[1-9]$/.test(e.key)){const a=store.data?.accounts[Number(e.key)-1];if(a){e.preventDefault();void select(a.id);}}
+  if((e.ctrlKey||(store.data?.macos&&e.metaKey))&&(e.key==='Tab'||e.key==='next'||e.key==='previous')){e.preventDefault();cycle(e.shiftKey||e.key==='previous');}
+  if((e.ctrlKey||(store.data?.macos&&e.metaKey))&&e.key===','){e.preventDefault();void openModal('settings');}
+  if((e.ctrlKey||(store.data?.macos&&e.metaKey))&&e.key.toLowerCase()==='r'){e.preventDefault();void reload();}
+  if((e.ctrlKey||(store.data?.macos&&e.metaKey))&&/^[1-9]$/.test(e.key)){const a=store.data?.accounts[Number(e.key)-1];if(a){e.preventDefault();void select(a.id);}}
 }
 onMounted(async()=>{
   systemTheme?.addEventListener('change',applyTheme);applyTheme();document.addEventListener('keydown',keydown);
@@ -135,14 +135,14 @@ onUnmounted(()=>{disposed=true;observer?.disconnect();clearTimeout(timer);stops.
       <section ref="dialogElement" class="app-dialog" :class="{'settings-dialog':modal==='settings'}" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
         <template v-if="modal==='settings'">
           <aside class="settings-nav"><p class="eyebrow">APPTERISK</p><h2 id="dialog-title">{{ t("Settings") }}</h2><button v-for="item in ['general','notifications','tray','downloads','privacy','accounts','updates','about','diagnostics']" :key="item" :class="{active:tab===item}" @click="tab=item">{{ t(({general:t('General'),notifications:t('Notifications'),tray:t('System Tray'),downloads:t('Downloads'),privacy:t('Privacy and Security'),accounts:t('Accounts'),updates:t('Updates'),about:t('About'),diagnostics:t('Diagnostics')} as Record<string,string>)[item]??item) }}</button><p class="settings-version">{{ t('Version') }} {{ store.data?.version }}</p></aside>
-          <div class="settings-body"><button class="close-button" :aria-label='t("Close settings")' :disabled="store.busy" @click="store.run(closeModal)">×</button>
+          <div class="settings-body"><p v-if="store.data?.macos" class="field-help">Experimental macOS support: accounts use independent persistent browser storage. Native notifications, managed downloads, camera/microphone permissions, launch at login and shortcuts while a provider has focus are unavailable.</p><button class="close-button" :aria-label='t("Close settings")' :disabled="store.busy" @click="store.run(closeModal)">×</button>
             <template v-if="tab==='general'"><p class="eyebrow">{{ t("MAKE IT YOURS") }}</p><h3>{{ t("General") }}</h3><p class="section-description">{{ t("A space that feels right for you.") }}</p>
               <label class="field-label">{{ t("Appearance") }}</label><div class="theme-options"><button v-for="option in ['light','dark','system'] as const" :key="option" class="theme-option" :class="{chosen:theme===option}" :disabled="store.busy" @click="preference('theme',option)"><span class="theme-preview" :class="option"><i/><b/><b/></span><span>{{ t(option[0].toUpperCase()+option.slice(1)) }}</span></button></div>
               <label class="field-label" for="startup">{{ t("Open on startup") }}</label><select id="startup" :value="settings?.default_account??''" :disabled="store.busy" @change="preference('default_account',($event.target as HTMLSelectElement).value||null)"><option value="">{{ t("Last selected account") }}</option><option v-for="a in store.data?.accounts" :key="a.id" :value="a.id">{{ a.name }}</option></select>
               <label class="field-label" for="language">{{ t("Language") }}</label><select id="language" :value="settings?.language" :disabled="store.busy" @change="preference('language',($event.target as HTMLSelectElement).value)"><option value="system">{{ t("System language") }}</option><option value="en">English</option><option v-if="settings?.language==='ms'" value="ms">{{ t("English (legacy preference)") }}</option><option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option></select><p class="field-help">{{ t("Each service manages its own language.") }}</p>
               <p v-if="store.data?.store_distribution" class="field-help">{{t("Startup changes are unavailable in this Store build.")}}</p>
-              <label v-if="desktop.data&&!store.data?.store_distribution" class="setting-toggle"><span>{{ t('Launch on Windows startup') }}</span><input type="checkbox" :checked="desktop.data.config.launch_on_startup" :disabled="store.busy" @change="store.run(()=>desktop.preference('launch_on_startup',($event.target as HTMLInputElement).checked))" /></label>
-              <div class="keyboard-note"><strong>{{ t("A few useful shortcuts") }}</strong><span>Ctrl + 1–9 <small>{{ t("Switch account") }}</small></span><span>Ctrl + R <small>{{ t("Reload account") }}</small></span><span>Ctrl + , <small>{{ t("Open settings") }}</small></span></div>
+              <label v-if="desktop.data&&!store.data?.store_distribution&&!store.data?.macos" class="setting-toggle"><span>{{ t('Launch on Windows startup') }}</span><input type="checkbox" :checked="desktop.data.config.launch_on_startup" :disabled="store.busy" @change="store.run(()=>desktop.preference('launch_on_startup',($event.target as HTMLInputElement).checked))" /></label>
+              <div class="keyboard-note"><strong>{{ t("A few useful shortcuts") }}</strong><span>{{store.data?.macos?'⌘':'Ctrl'}} + 1–9 <small>{{ t("Switch account") }}</small></span><span>{{store.data?.macos?'⌘':'Ctrl'}} + R <small>{{ t("Reload account") }}</small></span><span>{{store.data?.macos?'⌘':'Ctrl'}} + , <small>{{ t("Open settings") }}</small></span></div>
             </template>
             <UpdatePreferences v-else-if="tab==='updates'" />
             <DesktopPreferences v-else-if="['notifications','tray','downloads','privacy'].includes(tab)" :tab="tab" />

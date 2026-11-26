@@ -38,6 +38,7 @@ pub fn synthetic_mode() -> bool {
             matches!(
                 a.as_str(),
                 "--isolation-diagnostic"
+                    | "--macos-isolation-diagnostic"
                     | "--manager-diagnostic"
                     | "--remote-ipc-diagnostic"
                     | "--desktop-diagnostic"
@@ -185,6 +186,7 @@ pub struct Snapshot {
     runtime_version: Option<String>,
     synthetic: bool,
     store_distribution: bool,
+    macos: bool,
     platforms: &'static [crate::platforms::Platform],
 }
 fn snapshot(app: &tauri::AppHandle, r: &Runtime) -> Result<Snapshot> {
@@ -209,6 +211,7 @@ fn snapshot(app: &tauri::AppHandle, r: &Runtime) -> Result<Snapshot> {
         runtime_version: runtime_version(),
         synthetic: synthetic_mode(),
         store_distribution: cfg!(feature = "store-distribution"),
+        macos: cfg!(target_os = "macos"),
         platforms: crate::platforms::REGISTRY,
     })
 }
@@ -332,8 +335,11 @@ pub(crate) fn layout(app: &tauri::AppHandle, r: &Runtime, bounds: Option<Bounds>
         && let Some(v) = app.get_webview(&label(id))
     {
         if let Some(bounds) = bounds {
+            #[cfg(not(target_os = "macos"))]
             v.set_bounds(bounds.rect())
                 .map_err(|_| "Could not resize browser.")?;
+            #[cfg(target_os = "macos")]
+            crate::macos_profiles::set_bounds(app, &v, bounds)?;
         }
         v.show().map_err(|_| "Could not show browser.")?;
     }
@@ -363,8 +369,8 @@ pub async fn initialize(
     if health::overrides_present() {
         return Err("Remove WebView2 environment overrides before opening accounts. Profiles are unchanged.".into());
     }
-    if !cfg!(windows) {
-        return Err("This release requires Windows with WebView2 Evergreen.".into());
+    if !cfg!(any(windows, target_os = "macos")) {
+        return Err("Account views are currently supported on Windows and macOS 14+.".into());
     }
     crate::desktop::sync(app, r)?;
     let account = r.db.account(id)?;
@@ -396,6 +402,7 @@ pub async fn initialize(
         if !parent.starts_with(&root) || canonical != parent.join(id) {
             return Err("Profile escaped its managed directory.".into());
         }
+        #[cfg(not(target_os = "macos"))]
         let browser_path = crate::profile_paths::browser_directory(&canonical)?;
         if !r.profile_locks.contains_key(id) {
             r.profile_locks.insert(
@@ -421,11 +428,18 @@ pub async fn initialize(
             );
         }
         let builder=WebviewBuilder::new(&name,WebviewUrl::External(entry_url.parse().map_err(|_|"Invalid provider URL.")?))
-            .data_directory(browser_path.clone()).incognito(false).devtools(false).disable_drag_drop_handler()
+            .incognito(false).devtools(false).disable_drag_drop_handler()
             .on_navigation(move |url| platform.navigation(url))
             .on_new_window(move|url,_|{if external_url(&url)&&!crate::desktop::locked(&external_app){let _=open::that_detached(url.as_str());}NewWindowResponse::Deny})
             .on_document_title_changed(move|_,title|crate::desktop::title(&title_app,&title_id,&title))
             .on_page_load(move|_,payload|{if platform.navigation(payload.url()){let _=event_app.emit_to("main","account-load",json!({"id":event_id,"loaded":matches!(payload.event(),tauri::webview::PageLoadEvent::Finished)}));}});
+        #[cfg(not(target_os = "macos"))]
+        let builder = builder.data_directory(browser_path.clone());
+        #[cfg(target_os = "macos")]
+        let builder = crate::macos_profiles::configure(builder, id)?
+            // Native media permissions and managed downloads need separate Mac adapters.
+            .on_permission_request(|_, _| tauri::webview::PermissionResponse::Deny)
+            .on_download(|_, _| false);
         let window = app.get_window("main").ok_or("Main window unavailable.")?;
         // Create offscreen so a new native child can never cover an open shell dialog.
         let view = window
@@ -434,9 +448,14 @@ pub async fn initialize(
                 tauri::LogicalPosition::new(-32000.0, -32000.0),
                 tauri::LogicalSize::new(bounds.width, bounds.height),
             )
-            .map_err(|_| "Could not initialize account WebView. Check WebView2 and retry.")?;
+            .map_err(|_| "Could not initialize the native account browser. Restart and retry.")?;
         view.hide()
             .map_err(|_| "Could not hide initializing browser.")?;
+        #[cfg(target_os = "macos")]
+        if let Err(error) = crate::macos_profiles::verify(&view, id).await {
+            let _ = view.close();
+            return Err(error);
+        }
         #[cfg(windows)]
         match crate::windows_profiles::attach(app, &view, id, &canonical) {
             Ok(browser) => {
@@ -461,10 +480,17 @@ pub async fn initialize(
                 );
             }
         }
+        #[cfg(not(target_os = "macos"))]
         health::log(
             app,
             "account_webview_created",
             json!({"profile_id":id,"absolute_directory":browser_path,"canonical_directory":canonical,"incognito":false,"cleanup":false}),
+        );
+        #[cfg(target_os = "macos")]
+        health::log(
+            app,
+            "account_webview_created",
+            json!({"profile_id":id,"storage_backend":"wkwebview-named-store","store_identifier":id,"metadata_directory":canonical,"persistent":true,"cleanup":false}),
         );
     }
     Ok(())
@@ -623,7 +649,16 @@ pub async fn close_for_shutdown(
     Ok(r.browsers.values().cloned().collect())
 }
 #[cfg(not(windows))]
-pub async fn close_for_shutdown(_: &tauri::AppHandle) -> Result<Vec<()>> {
+pub async fn close_for_shutdown(app: &tauri::AppHandle) -> Result<Vec<()>> {
+    let state = app.state::<AccountState>();
+    let mut r = state.0.lock().await;
+    for a in r.db.accounts()? {
+        if let Some(view) = app.get_webview(&label(&a.id)) {
+            view.close()
+                .map_err(|_| "Could not close account browser.")?;
+        }
+    }
+    r.selection.active = None;
     Ok(vec![])
 }
 

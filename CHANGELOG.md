@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 - experimental macOS support
+
+- Added native macOS 14+ account views with persistent WKWebView stores keyed by account UUID and verified native storage isolation.
+- Fixed account alignment using the shell's native safe-area inset and coordinate space; added resize regression checks.
+- Added Apple Silicon DMG packaging in GitHub Actions and synthetic storage checks through three full application restarts.
+- Preserved Windows profile handling and updater feeds; disabled unsupported Mac updates, media permissions and managed downloads.
+- Real provider authentication acceptance, Intel support and Apple notarization remain pending.
+
 ## 0.5.0 - experimental secure updater
 
 - Official Tauri updater, signed-version verification, HTTPS GitHub channels and NSIS-only installation.

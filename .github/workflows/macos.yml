@@ -1,0 +1,47 @@
+name: Experimental macOS DMG
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: macos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: 24, cache: npm}
+      - run: rustup toolchain install stable --profile minimal
+      - run: rustup default stable
+      - run: rustup target add aarch64-apple-darwin
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run cargo -- test --manifest-path src-tauri/Cargo.toml
+      - name: Verify native Mac account stores through three restarts
+        run: npm run test:macos
+      # The build also runs TypeScript checking and the production frontend build.
+      # Ad-hoc signing needs no secrets and does not establish publisher trust.
+      - name: Build experimental Apple Silicon app and DMG
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        run: npm run tauri -- build --target aarch64-apple-darwin --config src-tauri/tauri.macos-experimental.conf.json
+      - name: Verify app signature and DMG integrity
+        run: |
+          codesign --verify --deep --strict --verbose=2 'src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Appterisk Messenger.app'
+          for dmg in src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg; do
+            hdiutil verify "$dmg"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: experimental-macos-arm64-dmg
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14

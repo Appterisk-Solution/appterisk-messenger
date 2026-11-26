@@ -1,0 +1,30 @@
+# Experimental macOS account support
+
+Date: 2026-11-26 (Asia/Kuala_Lumpur). Source baseline: `0f7adb1` plus local macOS changes. App version: 0.5.1. Host: macOS 27.2.1, Apple Silicon arm64. The minimum is macOS 14; macOS 14 itself and Intel hardware have not been tested.
+
+The implementation is versioned 0.5.2 for commit and CI packaging. The local native acceptance and DMG results below were collected before the version bump, using 0.5.1.
+
+The Windows-only account initialization guard has been replaced with a native macOS adapter. The pinned Tauri 2.12.7 / Wry 0.57.3 implementation was inspected: named persistent WKWebView stores use `WKWebsiteDataStore::dataStoreForIdentifier` on macOS 14+, while older systems silently fall back to the shared default store. The adapter rejects older systems before creating a view. Each existing account UUID maps directly to the native store UUID; the live WKWebView's persistent flag and identifier are checked before showing it. Metadata IDs, profile locks and removal-without-storage-deletion are preserved. Windows profile APIs remain platform-gated.
+
+## Actual local results
+
+- PASS: 25 Rust tests, including stable/distinct store identifiers and rejection of remote/lookalike shell origins.
+- PASS: 23 frontend tests, TypeScript production build and ESLint.
+- PASS: three independent named native stores with identical storage keys and different synthetic values, seeded once then verified after three complete application process exits and restarts. Checks cover cookies, localStorage, IndexedDB, stored blobs, Cache Storage and existing service-worker registrations.
+- PASS: synthetic remote pages cannot invoke the account snapshot command.
+- PASS: production account creation/switching runs with a disposable unlinked WhatsApp profile under the diagnostic run root; selecting the same account again does not create another WebView. Modal hide/restore calls succeed. This establishes native initialization, not provider login or visual acceptance.
+- PASS: local arm64 release app/DMG packaging, ad-hoc app signature verification and DMG checksum verification. No Apple notarization is claimed. Rust compilation still reports unused Windows integration code warnings on macOS.
+- PASS: account frames account for the shell WKWebView safe-area inset (32 points on this host). DOM content rectangles are converted through the shell's native coordinate space before positioning child views. Native frame assertions pass at 1280×860, 1100×760 and 1600×1000, including header/footer clearance after resizing. Regression evidence: `e01563d4-5cb1-4a2e-9075-3c7576af3bfb/geometry.json` in the same local diagnostic-runs directory.
+- Evidence run: `b406a182-8e10-4504-afd8-ffa79c94c83b`, retained locally under `~/Library/Application Support/com.appterisk.messenger/diagnostic-runs/<run>/phase-{0,1,2,3}.json`. Only synthetic check results are recorded; no real authentication storage is inspected.
+
+Run `npm run test:macos` to repeat using new disposable stores. The fixture is debug-only and uses a loopback HTTP origin. It never links an account or touches the owner's metadata database. Test profiles are retained.
+
+## Availability and remaining acceptance
+
+macOS automatic updates are disabled before plugin initialization and command execution, so Windows feeds/installers are not used. Mac packaging defaults to app/DMG, macOS 14 minimum and no updater artifacts. CI builds an ad-hoc-signed Apple Silicon DMG and runs the native fixture. CI has not yet been run for these changes.
+
+Native notifications, managed downloads, media permission controls, launch at login, activity-based automatic locking and account shortcuts while provider content has focus are unavailable. Media requests and downloads are denied; unavailable settings are labeled/disabled. Manual locking remains available. Shell shortcuts accept Command as well as Control. Existing tray, external popup routing and normal Tauri application shutdown are retained; broader desktop integration needs manual testing.
+
+NOT TESTED: real WhatsApp, Telegram or Discord authentication; three-restart real-login persistence; provider messages/media; notification delivery; visual resizing/modal behavior; tray and external-link acceptance; Apple Developer ID signing/notarization; Windows regressions on a Windows host. A synthetic pass does not establish provider compatibility.
+
+Owner acceptance: quit the previous app normally, install the new experimental DMG, open an account and link through the official provider website. After linking, quit the whole app with Command-Q and reopen three times to verify login persistence. Do not copy Windows browser profiles. Existing profiles and account metadata have not been deleted or migrated.

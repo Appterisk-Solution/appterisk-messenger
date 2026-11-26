@@ -8,6 +8,10 @@ mod desktop_policy;
 #[cfg(all(debug_assertions, target_os = "windows"))]
 mod diagnostics;
 mod health;
+#[cfg(all(debug_assertions, target_os = "macos"))]
+mod macos_diagnostics;
+#[cfg(target_os = "macos")]
+mod macos_profiles;
 #[cfg(all(debug_assertions, target_os = "windows"))]
 mod manager_diagnostics;
 mod platforms;
@@ -81,6 +85,8 @@ pub fn run() {
             manager_diagnostics::start(_app.handle())?;
             #[cfg(all(debug_assertions, target_os = "windows"))]
             desktop_diagnostics::start(_app.handle())?;
+            #[cfg(all(debug_assertions, target_os = "macos"))]
+            macos_diagnostics::start(_app.handle())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -109,6 +109,9 @@ fn authorized(caller: &Webview, app: &tauri::AppHandle) -> Result<()> {
     crate::probe::trusted(caller)
         .map_err(|_| "FORBIDDEN: only the local shell may manage updates.")?;
     desktop::ensure_unlocked(app)?;
+    if !cfg!(windows) {
+        return Err("Automatic updates are unavailable on this platform. Install a new application bundle manually.".into());
+    }
     if cfg!(feature = "store-distribution") {
         return Err("Updates are managed by Microsoft Store.".into());
     }
@@ -144,8 +147,9 @@ pub fn setup(app: &tauri::AppHandle) -> Result<()> {
             .transpose()?
             .unwrap_or_default()
     };
-    let configured =
-        !cfg!(feature = "store-distribution") && PUBLIC_KEY.is_some_and(|v| !v.trim().is_empty());
+    let configured = cfg!(windows)
+        && !cfg!(feature = "store-distribution")
+        && PUBLIC_KEY.is_some_and(|v| !v.trim().is_empty());
     if configured {
         app.plugin(
             tauri_plugin_updater::Builder::new()

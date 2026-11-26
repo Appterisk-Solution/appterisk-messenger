@@ -6,7 +6,7 @@ Prepared: 2026-11-25. Baseline: v0.5.0, Rust + Tauri 2 + Vue 3 + TypeScript.
 
 The owner has a Mac available for development and manual testing. This document is a setup guide and implementation handoff, not evidence of a working Mac release.
 
-The current application is Windows-first. Account WebView creation in `src-tauri/src/accounts.rs` explicitly refuses non-Windows platforms. The bundle configuration targets NSIS/MSI, and desktop integrations use Windows-specific modules. A successful frontend build alone does not demonstrate macOS support.
+The application now has an experimental macOS 14+ account adapter in `src-tauri/src/macos_profiles.rs`. Account UUIDs select persistent named WKWebView stores, and each created view verifies its native store identity before use. The default macOS configuration builds app/DMG bundles without updater artifacts; the Windows configuration remains separate. See `docs/MACOS_VERIFICATION.md` for actual checks and remaining acceptance work. A successful build does not demonstrate provider compatibility.
 
 macOS uses WKWebView, not WebView2. Windows browser profiles must not be copied to the Mac. Link new sessions through the official provider websites after native profile isolation has been verified.
 
@@ -92,6 +92,14 @@ An ad-hoc signature does **not** establish an Apple-verified publisher or notari
 Typical default output directories are `src-tauri/target/release/bundle/macos/` and `src-tauri/target/release/bundle/dmg/`. Explicit Rust targets can add an architecture directory; use the actual CLI output instead of assuming an artifact exists.
 
 ## 6. Gatekeeper and local testing
+
+GitHub Actions workflow **Experimental macOS DMG** (`.github/workflows/macos.yml`) builds an Apple Silicon (`aarch64-apple-darwin`) app and DMG on pushes to `main`/`feature/**`, pull requests, and manual runs. Download `experimental-macos-arm64-dmg` from the completed run's **Artifacts** section and extract the DMG. Artifacts are retained for 14 days. These are ad-hoc-signed experimental builds, not notarized releases; building successfully does not establish provider compatibility. The workflow does not publish a GitHub Release or change Windows updater feeds.
+
+To reproduce the CI packaging configuration locally on Apple Silicon:
+
+```bash
+APPLE_SIGNING_IDENTITY="-" npm run tauri -- build --target aarch64-apple-darwin --config src-tauri/tauri.macos-experimental.conf.json
+```
 
 A locally built app and a browser-downloaded DMG may behave differently under Gatekeeper. A manual override is not proof of safe distribution or application compatibility. This guide does not disable Gatekeeper, remove quarantine attributes or change system security settings. If macOS blocks the test app, inspect the exact warning and follow Apple's supported guidance yourself; do not override a known-malware warning.
 

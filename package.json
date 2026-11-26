@@ -1,7 +1,7 @@
 {
   "name": "appterisk-messenger",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "tauri": "node scripts/tauri.mjs",
     "cargo": "node scripts/cargo.mjs",
     "test:isolation": "node scripts/tauri.mjs build --debug --no-bundle && node scripts/isolation.mjs",
+    "test:macos": "node scripts/tauri.mjs build --debug --no-bundle && node scripts/macos-isolation.mjs",
     "test:edge": "node scripts/edge-comparison.mjs",
     "build:controls": "node scripts/cargo.mjs build --manifest-path diagnostics/Cargo.toml --release -p appterisk-native-control -p appterisk-minimal-tauri-control",
     "test:native": "node scripts/control-run.mjs native",
